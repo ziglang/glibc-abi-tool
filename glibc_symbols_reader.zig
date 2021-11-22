@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const ReaderError = error{
+pub const ReaderError = error{
     CorruptSymbolsFile,
 };
 
@@ -16,39 +16,14 @@ const lib_names = [_][]const u8{
     "util",
 };
 
-const Symbol = struct {
+pub const Symbol = struct {
     name: []const u8,
     versions: std.ArrayList([]const u8),
     targets: std.ArrayList([]const u8),
     lib: []const u8,
 };
 
-pub fn main() !void {
-    var symbols = try readSymbolsFile("libc/glibc/symbols");
-
-    for (symbols.items) |symbol| {
-        std.debug.print("Symbol: {s} in lib{s} \n", .{ symbol.name, symbol.lib });
-
-        std.debug.print("\t Available versions: ", .{});
-        for (symbol.versions.items) |version| {
-            std.debug.print("{s} ", .{version});
-        }
-        std.debug.print("\n", .{});
-
-        std.debug.print("\t Available targets: ", .{});
-        for (symbol.targets.items) |target| {
-            std.debug.print("{s} ", .{target});
-        }
-        std.debug.print("\n\n", .{});
-    }
-}
-
-pub fn readSymbolsFile(file_path: []const u8) !std.ArrayList(Symbol) {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    const allocator = &arena.allocator;
-
-    const symbols_file = try std.fs.cwd().openFile(file_path, .{});
-
+pub fn readSymbolsFile(allocator: *std.mem.Allocator, symbols_file: std.fs.File) !std.ArrayList(Symbol) {
     // First byte tells how many glibc versions there are
     var versions_number_byte: [1]u8 = undefined;
     _ = try symbols_file.readAll(&versions_number_byte);

@@ -41,3 +41,9 @@ symbol mapping files will be updated in `path/to/zig/lib/libc/glibc`.
       - last inclusion is indicated if 1 << 31 bit is set in target bitset
     - u64 (8 bytes) glibc version bitset (1 << (INDEX_IN_GLIBC_VERSION_LIST))
     - u8 (1 byte) library index from a known library names list
+
+## List all symbols with their library, targets and versions in current symbols file
+
+```bash
+zig run list_symbols.zig
+```
