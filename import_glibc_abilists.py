@@ -56,6 +56,7 @@ def main():
 
       # create path if it does not exist
       if not os.path.exists(out_dir):
+
         pathlib.Path(out_dir).mkdir(parents=True)
 
       # copy files
