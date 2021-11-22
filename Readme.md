@@ -20,22 +20,22 @@ import_glibc_abilist.py path/to/glibc/repo
 
 ## Updating .abilist symbols file for zig
 
-1. Run `update_glibc.zig`
+1. Run `update_glibc.zig` at the root of this repo
 
 ```
-zig run update_glibc.zig -- glibc/ .
+zig run update_glibc.zig -- glibc/ path/to/zig/lib
 ```
 
-symbol mapping files will be updated in `./lib/glibc`.
+symbol mapping files will be updated in `path/to/zig/lib/libc/glibc`.
 
 ## Binary encoding format:
 
 - 1 byte - number of glibc versions
-- ordered list of glibc versions terminated with newline byte
+- ordered list of glibc versions terminated by newline byte
 - 1 byte - number of targets
 - ordered list of targets terminated by newline byte
 - list of symbols:
-  - Null terminated symbol name
+  - null terminated symbol name
   - list of inclusions
     - u32 (4 bytes) bitset for targets (1 << (INDEX_IN_TARGET_LIST))
       - last inclusion is indicated if 1 << 31 bit is set in target bitset
