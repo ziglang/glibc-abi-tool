@@ -17,3 +17,27 @@ git clone git://sourceware.org/git/glibc.git
 ```bash
 import_glibc_abilist.py path/to/glibc/repo
 ```
+
+## Updating .abilist symbols file for zig
+
+1. Run `update_glibc.zig`
+
+```
+zig run update_glibc.zig -- glibc/ .
+```
+
+symbol mapping files will be updated in `./lib/glibc`.
+
+## Binary encoding format:
+
+- 1 byte - number of glibc versions
+- ordered list of glibc versions terminated with newline byte
+- 1 byte - number of targets
+- ordered list of targets terminated by newline byte
+- list of symbols:
+  - Null terminated symbol name
+  - list of inclusions
+    - u32 (4 bytes) bitset for targets (1 << (INDEX_IN_TARGET_LIST))
+      - last inclusion is indicated if 1 << 31 bit is set in target bitset
+    - u64 (8 bytes) glibc version bitset (1 << (INDEX_IN_GLIBC_VERSION_LIST))
+    - u8 (1 byte) library index from a known library names list
