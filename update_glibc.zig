@@ -33,6 +33,12 @@ const SymbolInclusion = struct {
     // lib is already an index from lib_names, so nothing has to be
     // done when writing to binary file.
     lib: usize,
+
+    // Lowest glibc target version that this inclusion appears in
+    // For example: pthread_sigmask was migrated from libpthread
+    // to libc in glibc-2.32, so inclusion with libc would have
+    // the index of glibc-2.32. 0 is default value for lower versions.
+    since_version: u8 = 0,
 };
 
 const lib_names = [_][]const u8{
@@ -181,6 +187,12 @@ pub fn main() !void {
 
     var glibc_out_dir = try fs.path.join(allocator, &[_][]const u8{ zig_src_dir, "libc", "glibc" });
 
+    // For each target - 7 library bitsets of available glibc versions.
+    // Version names are converted to bitsets when writing binary file.
+    // Target names (keys of StringHashMap) must be ordered in same order
+    // as target_names section in binary file.
+    var available_library_versions = std.StringHashMap([7]std.ArrayList([]const u8)).init(allocator);
+
     while (try version_dir_it.next()) |entry| {
         const version = try std.builtin.Version.parse(entry.name);
         const current_version_path = try fs.path.join(allocator, &[_][]const u8{ abilist_dir, entry.name });
@@ -204,11 +216,18 @@ pub fn main() !void {
             for (abi_list.targets) |target| {
                 const name = try std.fmt.allocPrint(allocator, "{s}-linux-{s}", .{ @tagName(target.arch), @tagName(target.abi) });
                 try target_names.append(name);
+
+                // Initialize library versions array list for current target
+                var i:u8=0;
+                var libs_version_list:[7]std.ArrayList([]const u8) = undefined;
+                // loop for lib_names.len times
+                while(i<7):(i+=1){
+                    libs_version_list[i] = std.ArrayList([]const u8).init(allocator);
+                }
+                try available_library_versions.put(name, libs_version_list);
             }
 
             // Formatted with GLIBC_ prefix to be compatible with how versions are described in .abilist files.
-            const current_glibc_versionname: []const u8 = try std.mem.concat(allocator, u8, &[_][]const u8{ "GLIBC_", entry.name });
-
             for (lib_names) |lib_name, lib_i| {
                 const lib_prefix = if (std.mem.eql(u8, lib_name, "ld")) "" else "lib";
                 const basename = try fmt.allocPrint(allocator, "{s}{s}.abilist", .{ lib_prefix, lib_name });
@@ -281,6 +300,28 @@ pub fn main() !void {
                         .name = name,
                     });
 
+                    // Append versions available for current lib to available_library_versions
+                    for(target_names.items)|target_name|{
+                        var alv_gop = try available_library_versions.getOrPut(target_name);
+                        if(alv_gop.found_existing){
+                            // lib_i must exist - otherwise something is definitely wrong.
+                            // append unique versions only
+                            var found = false;
+                            for(alv_gop.value_ptr.*[lib_i].items) |version_string|{
+                                if(std.mem.eql(u8, version_string, ver)){
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if(!found){
+                               try alv_gop.value_ptr.*[lib_i].append(ver);
+                            }
+                        }else{
+                            std.debug.print("target: {s} not found \n", .{target_name});
+                            return error.CorruptSymbolsFile;
+                        }
+                    }
+
                     const all_syms_gop = try all_symbols.getOrPut(name);
                     if (!all_syms_gop.found_existing) {
                         all_syms_gop.value_ptr.* = Symbol{
@@ -315,13 +356,13 @@ pub fn main() !void {
                                 // Append unique glibc versions to version list
                                 var found = false;
                                 for (sym_inclusion.*.glibc_versions.items) |glibc_version| {
-                                    if (std.mem.eql(u8, glibc_version, current_glibc_versionname)) {
+                                    if (std.mem.eql(u8, glibc_version, ver)) {
                                         found = true;
                                         break;
                                     }
                                 }
                                 if (!found) {
-                                    try sym_inclusion.*.glibc_versions.append(current_glibc_versionname);
+                                    try sym_inclusion.*.glibc_versions.append(ver);
                                 }
 
                                 continue :symbols;
@@ -331,7 +372,7 @@ pub fn main() !void {
                     // if current lib does not exist in the list - add new inclusion
                     for (target_names.items) |target_name| {
                         try s_inclusion.target_names.append(target_name);
-                        try s_inclusion.glibc_versions.append(current_glibc_versionname);
+                        try s_inclusion.glibc_versions.append(ver);
                     }
                     try all_syms_gop.value_ptr.*.inclusions.append(s_inclusion);
                 }
@@ -475,6 +516,39 @@ pub fn main() !void {
         try writer.writeByte('\n');
         try target_name_flags.put(target, std.math.shl(u32, 1, @intCast(u32, target_i)));
     }
+
+    // write versions available in each library for each target
+    var al_it = available_library_versions.iterator();
+    // order how data is presented must match target_names
+    var available_library_versions_ordered = try allocator.alloc([7]u64, targets_n);
+    while(al_it.next())|target_libs_versions|{
+
+        for(target_names.items)|target_name, index|{
+            // get the index for current target being processed
+            if(std.mem.eql(u8, target_name, target_libs_versions.key_ptr.*)){
+                // init to 0 all values
+                for(available_library_versions_ordered[index])|*lib_versions_bitset|{
+                    lib_versions_bitset.* = 0;
+                }
+
+                // generate bitsets for each library
+                for(target_libs_versions.value_ptr.*)|verlists, lib_i|{
+                    for(verlists.items)|version|{
+                        // version must exist
+                        const ver_bitflag = verlist_flags.get(version) orelse unreachable;
+                        available_library_versions_ordered[index][lib_i] |= ver_bitflag;
+                    }
+                }
+            }
+        }
+    }
+    for(available_library_versions_ordered)|versions_in_lib_bitsets|{
+        for(versions_in_lib_bitsets)|version_bitset|{
+            const bytes_to_write = std.mem.asBytes(&version_bitset);
+            try writer.writeAll(bytes_to_write);
+        }
+    }
+    available_library_versions.deinit();
 
     // Write all_symbols information
     var all_syms_it = all_symbols.iterator();

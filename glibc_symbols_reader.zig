@@ -23,18 +23,34 @@ pub const Symbol = struct {
     lib: []const u8,
 };
 
-pub fn readSymbolsFile(allocator: *std.mem.Allocator, symbols_file: std.fs.File) !std.ArrayList(Symbol) {
+pub const Result = struct{
+    all_versions: std.ArrayList([]const u8),
+    all_targets: std.ArrayList([]const u8),
+
+    // There might be different versions available (from abilist files)
+    // for same symbol in same library on different targets.
+    // Structure:
+    // keys - target name strings
+    // values - 7 (for each known library from lib_names) lists of indexes from all_versions.
+    versions_in_libs: std.StringHashMap([7]std.ArrayList(u8)),
+
+    symbols: std.ArrayList(Symbol),
+};
+
+pub fn readSymbolsFile(allocator: *std.mem.Allocator, symbols_file: std.fs.File) !Result {
     // First byte tells how many glibc versions there are
     var versions_number_byte: [1]u8 = undefined;
     _ = try symbols_file.readAll(&versions_number_byte);
     var versions_number = versions_number_byte[0];
 
     // Collect available glibc versions
+    var all_versions = std.ArrayList([]const u8).init(allocator);
     var bitflag_verlist = std.AutoArrayHashMap(u64, []const u8).init(allocator);
     var i: u8 = 0;
     while (i < versions_number) {
         const version_bitflag = std.math.shl(u64, 1, @intCast(u64, i));
         const version_name = try readString(allocator, '\n', symbols_file);
+        try all_versions.append(version_name);
         try bitflag_verlist.put(version_bitflag, version_name);
         i += 1;
     }
@@ -45,13 +61,47 @@ pub fn readSymbolsFile(allocator: *std.mem.Allocator, symbols_file: std.fs.File)
     var targets_number = targets_number_byte[0];
 
     // Collect available targets
+    var all_targets = std.ArrayList([]const u8).init(allocator);
     var bitflags_targetlist = std.AutoArrayHashMap(u32, []const u8).init(allocator);
     i = 0;
-    while (i < targets_number) {
+    while (i < targets_number): (i += 1) {
         const target_bitflag = std.math.shl(u32, 1, @intCast(u32, i));
         const target_name = try readString(allocator, '\n', symbols_file);
+        try all_targets.append(target_name);
         try bitflags_targetlist.put(target_bitflag, target_name);
-        i += 1;
+    }
+
+    // Read available version bitsets in each library for each target
+    i = 0;
+    var versions_in_libs = std.StringHashMap([7]std.ArrayList(u8)).init(allocator);
+    while(i<targets_number): (i+=1){
+        var versions_in_libs_bytes: [56]u8 = undefined;
+        _ = try symbols_file.readAll(&versions_in_libs_bytes);
+        var versions_in_libs_current_target = std.mem.bytesToValue([7]u64, &versions_in_libs_bytes);
+
+        const target_name = all_targets.items[i];
+        var version_indexes:[7]std.ArrayList(u8) = undefined;
+
+        for(versions_in_libs_current_target)|version_bitset, lib_i|{
+            version_indexes[lib_i] = std.ArrayList(u8).init(allocator);
+
+            var bv_it = bitflag_verlist.iterator();
+            while(bv_it.next())|entry|{
+                if(version_bitset & entry.key_ptr.* > 0){
+                    // we have a string, but want an index for compactness
+                    for(all_versions.items)|version_string, version_index|{
+                        if(std.mem.eql(u8, version_string, entry.value_ptr.*)){
+
+                            // we are sure that number of different glibc versions
+                            // does not exceed u8 size.
+                            try version_indexes[lib_i].append(@truncate(u8, version_index));
+                        }
+                    }
+                }
+            }
+        }
+
+        try versions_in_libs.put(target_name, version_indexes);
     }
 
     var symbols = std.ArrayList(Symbol).init(allocator);
@@ -80,7 +130,7 @@ pub fn readSymbolsFile(allocator: *std.mem.Allocator, symbols_file: std.fs.File)
                 return error.CorruptSymbolsFile;
             }
             const target_bitset = std.mem.bytesToValue(u32, &target_bitset_bytes);
-            // Check which targets are available
+            // Add available targets
             var bt_it = bitflags_targetlist.iterator();
             while (bt_it.next()) |entry| {
                 if (target_bitset & entry.key_ptr.* > 0) {
@@ -95,7 +145,7 @@ pub fn readSymbolsFile(allocator: *std.mem.Allocator, symbols_file: std.fs.File)
                 return error.CorruptSymbolsFile;
             }
             const version_bitset = std.mem.bytesToValue(u64, &version_bitset_bytes);
-            // Check which glibc versions are available
+            // Add available glibc versions
             var bv_it = bitflag_verlist.iterator();
             while (bv_it.next()) |entry| {
                 if (version_bitset & entry.key_ptr.* > 0) {
@@ -119,7 +169,12 @@ pub fn readSymbolsFile(allocator: *std.mem.Allocator, symbols_file: std.fs.File)
         }
     }
 
-    return symbols;
+    return Result{
+        .all_versions = all_versions,
+        .all_targets = all_targets,
+        .versions_in_libs = versions_in_libs,
+        .symbols = symbols,
+    };
 }
 
 // Reads file until delimiter is found and returns read string.
