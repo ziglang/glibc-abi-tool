@@ -33,12 +33,6 @@ const SymbolInclusion = struct {
     // lib is already an index from lib_names, so nothing has to be
     // done when writing to binary file.
     lib: usize,
-
-    // Lowest glibc target version that this inclusion appears in
-    // For example: pthread_sigmask was migrated from libpthread
-    // to libc in glibc-2.32, so inclusion with libc would have
-    // the index of glibc-2.32. 0 is default value for lower versions.
-    since_version: u8 = 0,
 };
 
 const lib_names = [_][]const u8{

@@ -30,8 +30,9 @@ pub const Result = struct{
     // There might be different versions available (from abilist files)
     // for same symbol in same library on different targets.
     // Structure:
-    // keys - target name strings
-    // values - 7 (for each known library from lib_names) lists of indexes from all_versions.
+    //  keys - target name strings
+    //  values - 7 (for each known library from lib_names) lists of indexes from all_versions.
+    // Version indexes are guaranteed to be sorted in ascending order.
     versions_in_libs: std.StringHashMap([7]std.ArrayList(u8)),
 
     symbols: std.ArrayList(Symbol),
@@ -101,6 +102,7 @@ pub fn readSymbolsFile(allocator: *std.mem.Allocator, symbols_file: std.fs.File)
             }
         }
 
+        // version_indexes is sorted as we check from smallest to largets index
         try versions_in_libs.put(target_name, version_indexes);
     }
 

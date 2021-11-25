@@ -40,7 +40,7 @@ pub fn main() !void {
         for(entry.value_ptr.*)|libs_versions, lib_i|{
             std.debug.print("\t versions available in lib{s}: ", .{lib_names[lib_i]});
             for(libs_versions.items)|version_index|{
-                std.debug.print("{d} ", .{version_index});
+                std.debug.print("{s} ", .{result.all_versions.items[version_index]});
             }
             std.debug.print("\n", .{});
         }

@@ -34,6 +34,9 @@ symbol mapping files will be updated in `path/to/zig/lib/libc/glibc`.
 - ordered list of glibc versions terminated by newline byte
 - 1 byte - number of targets
 - ordered list of targets terminated by newline byte
+- number of targets amount of entries x 7 (one entry for each library). Each entry is:
+  - u64 (8 bytes) bit set for versions available in library for that particular target.
+  - in total this is 56 bytes (7x8) per each target
 - list of symbols:
   - null terminated symbol name
   - list of inclusions
