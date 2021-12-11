@@ -1,6 +1,8 @@
-# About
+# glibc ABI Tool
 
-This repository contains `.abilist` files from glibc. These files are used to generate symbol mapping files that are used with [zig cc](https://andrewkelley.me/post/zig-cc-powerful-drop-in-replacement-gcc-clang.html)
+This repository contains `.abilist` files from glibc. These files are used to
+generate symbol mapping files that are used with Zig to target any version of
+glibc.
 
 ## Adding new glibc version `.abilist` files
 
@@ -10,13 +12,13 @@ This repository contains `.abilist` files from glibc. These files are used to ge
 git clone git://sourceware.org/git/glibc.git
 ```
 
-2. Add new version to `TARGET_VERSIONS` tuple in `import_glibc_abilist.py`
+2. Check out the new glibc version git tag, e.g. `glibc-2.34`.
 
-3. Run `import_glibc_abilist.py`
+3. Write a tool that goes into this repository that looks for .abilist files
+   and mirrors the directory structure into the `glibc` subdirectory,
+   namespaced under the version number.
 
-```bash
-import_glibc_abilist.py path/to/glibc/repo
-```
+4. Update these readme instructions with how to use the tool.
 
 ## Updating .abilist symbols file for zig
 
