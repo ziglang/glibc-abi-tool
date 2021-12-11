@@ -8,17 +8,23 @@ glibc.
 
 1. Clone glibc
 
-```bash
+```sh
 git clone git://sourceware.org/git/glibc.git
 ```
 
 2. Check out the new glibc version git tag, e.g. `glibc-2.34`.
 
-3. Write a tool that goes into this repository that looks for .abilist files
-   and mirrors the directory structure into the `glibc` subdirectory,
-   namespaced under the version number.
+3. Run the tool to grab the new abilist files:
 
-4. Update these readme instructions with how to use the tool.
+```sh
+zig run collect_abilist_files.zig -- $GLIBC_GIT_REPO_PATH
+```
+
+4. This mirrors the directory structure into the `glibc` subdirectory,
+   namespaced under the version number, but only copying files with the
+   .abilist extension.
+
+5. Inspect the changes and then commit these new files into git.
 
 ## Updating .abilist symbols file for zig
 
