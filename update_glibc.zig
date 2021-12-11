@@ -165,9 +165,10 @@ const Function = struct {
 };
 
 pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    const allocator = &arena.allocator;
-    const args = try std.process.argsAlloc(allocator);
+    var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    const arena = arena_instance.allocator();
+
+    const args = try std.process.argsAlloc(arena);
 
     const abilist_dir = args[1]; // path to directory that contains abilist files for all glibc versions
     const zig_src_dir = args[2]; // path to the source checkout of zig, lib dir, e.g. ~/zig-src/lib
@@ -176,47 +177,47 @@ pub fn main() !void {
     var version_dir_it = version_dir.iterate();
 
     // All symbols from glibc
-    var all_symbols = std.StringHashMap(Symbol).init(allocator);
-    var global_ver_set = std.StringHashMap(usize).init(allocator);
+    var all_symbols = std.StringHashMap(Symbol).init(arena);
+    var global_ver_set = std.StringHashMap(usize).init(arena);
 
-    var glibc_out_dir = try fs.path.join(allocator, &[_][]const u8{ zig_src_dir, "libc", "glibc" });
+    var glibc_out_dir = try fs.path.join(arena, &[_][]const u8{ zig_src_dir, "libc", "glibc" });
 
     // For each target - 7 library bitsets of available glibc versions.
     // Version names are converted to bitsets when writing binary file.
     // Target names (keys of StringHashMap) must be ordered in same order
     // as target_names section in binary file.
-    var available_library_versions = std.StringHashMap([7]std.ArrayList([]const u8)).init(allocator);
+    var available_library_versions = std.StringHashMap([7]std.ArrayList([]const u8)).init(arena);
 
     while (try version_dir_it.next()) |entry| {
         const version = try std.builtin.Version.parse(entry.name);
-        const current_version_path = try fs.path.join(allocator, &[_][]const u8{ abilist_dir, entry.name });
-        const prefix = try fs.path.join(allocator, &[_][]const u8{ current_version_path, "sysdeps", "unix", "sysv", "linux" });
+        const current_version_path = try fs.path.join(arena, &[_][]const u8{ abilist_dir, entry.name });
+        const prefix = try fs.path.join(arena, &[_][]const u8{ current_version_path, "sysdeps", "unix", "sysv", "linux" });
 
-        var global_fn_set = std.StringHashMap(Function).init(allocator);
-        var target_functions = std.AutoHashMap(usize, FunctionSet).init(allocator);
+        var global_fn_set = std.StringHashMap(Function).init(arena);
+        var target_functions = std.AutoHashMap(usize, FunctionSet).init(arena);
 
         for (abi_lists) |*abi_list| {
             const target_funcs_gop = try target_functions.getOrPut(@ptrToInt(abi_list));
             if (!target_funcs_gop.found_existing) {
                 target_funcs_gop.value_ptr.* = FunctionSet{
-                    .list = std.ArrayList(VersionedFn).init(allocator),
-                    .fn_vers_list = FnVersionList.init(allocator),
+                    .list = std.ArrayList(VersionedFn).init(arena),
+                    .fn_vers_list = FnVersionList.init(arena),
                 };
             }
             const fn_set = &target_funcs_gop.value_ptr.list;
 
             // Generate list of target names for current abi_list
-            var target_names = std.ArrayList([]const u8).init(allocator);
+            var target_names = std.ArrayList([]const u8).init(arena);
             for (abi_list.targets) |target| {
-                const name = try std.fmt.allocPrint(allocator, "{s}-linux-{s}", .{ @tagName(target.arch), @tagName(target.abi) });
+                const name = try std.fmt.allocPrint(arena, "{s}-linux-{s}", .{ @tagName(target.arch), @tagName(target.abi) });
                 try target_names.append(name);
 
                 // Initialize library versions array list for current target
-                var i:u8=0;
-                var libs_version_list:[7]std.ArrayList([]const u8) = undefined;
+                var i: u8 = 0;
+                var libs_version_list: [7]std.ArrayList([]const u8) = undefined;
                 // loop for lib_names.len times
-                while(i<7):(i+=1){
-                    libs_version_list[i] = std.ArrayList([]const u8).init(allocator);
+                while (i < 7) : (i += 1) {
+                    libs_version_list[i] = std.ArrayList([]const u8).init(arena);
                 }
                 try available_library_versions.put(name, libs_version_list);
             }
@@ -224,43 +225,43 @@ pub fn main() !void {
             // Formatted with GLIBC_ prefix to be compatible with how versions are described in .abilist files.
             for (lib_names) |lib_name, lib_i| {
                 const lib_prefix = if (std.mem.eql(u8, lib_name, "ld")) "" else "lib";
-                const basename = try fmt.allocPrint(allocator, "{s}{s}.abilist", .{ lib_prefix, lib_name });
+                const basename = try fmt.allocPrint(arena, "{s}{s}.abilist", .{ lib_prefix, lib_name });
                 const abi_list_filename = blk: {
                     const is_c = std.mem.eql(u8, lib_name, "c");
                     const is_m = std.mem.eql(u8, lib_name, "m");
                     const is_ld = std.mem.eql(u8, lib_name, "ld");
                     if (abi_list.targets[0].abi == .gnuabi64 and (is_c or is_ld)) {
-                        break :blk try fs.path.join(allocator, &[_][]const u8{ prefix, abi_list.path, "n64", basename });
+                        break :blk try fs.path.join(arena, &[_][]const u8{ prefix, abi_list.path, "n64", basename });
                     } else if (abi_list.targets[0].abi == .gnuabin32 and (is_c or is_ld)) {
-                        break :blk try fs.path.join(allocator, &[_][]const u8{ prefix, abi_list.path, "n32", basename });
+                        break :blk try fs.path.join(arena, &[_][]const u8{ prefix, abi_list.path, "n32", basename });
                     } else if (abi_list.targets[0].arch != .arm and
                         abi_list.targets[0].abi == .gnueabihf and
                         (is_c or (is_m and abi_list.targets[0].arch == .powerpc)))
                     {
-                        break :blk try fs.path.join(allocator, &[_][]const u8{ prefix, abi_list.path, "fpu", basename });
+                        break :blk try fs.path.join(arena, &[_][]const u8{ prefix, abi_list.path, "fpu", basename });
                     } else if (abi_list.targets[0].arch != .arm and
                         abi_list.targets[0].abi == .gnueabi and
                         (is_c or (is_m and abi_list.targets[0].arch == .powerpc)))
                     {
-                        break :blk try fs.path.join(allocator, &[_][]const u8{ prefix, abi_list.path, "nofpu", basename });
+                        break :blk try fs.path.join(arena, &[_][]const u8{ prefix, abi_list.path, "nofpu", basename });
                     } else if ((abi_list.targets[0].arch == .armeb or abi_list.targets[0].arch == .arm) and version.order(ver30) == .gt) {
                         var le_be = "le";
                         if (abi_list.targets[0].arch == .armeb) {
                             le_be = "be";
                         }
-                        break :blk try fs.path.join(allocator, &[_][]const u8{ prefix, abi_list.path, le_be, basename });
+                        break :blk try fs.path.join(arena, &[_][]const u8{ prefix, abi_list.path, le_be, basename });
                     } else if ((abi_list.targets[0].arch == .powerpc64le or abi_list.targets[0].arch == .powerpc64) and version.order(ver28) == .gt) {
                         var le_be = "le";
                         if (abi_list.targets[0].arch == .powerpc64) {
                             le_be = "be";
                         }
-                        break :blk try fs.path.join(allocator, &[_][]const u8{ prefix, abi_list.path, le_be, basename });
+                        break :blk try fs.path.join(arena, &[_][]const u8{ prefix, abi_list.path, le_be, basename });
                     }
 
-                    break :blk try fs.path.join(allocator, &[_][]const u8{ prefix, abi_list.path, basename });
+                    break :blk try fs.path.join(arena, &[_][]const u8{ prefix, abi_list.path, basename });
                 };
                 const max_bytes = 10 * 1024 * 1024;
-                const contents = std.fs.cwd().readFileAlloc(allocator, abi_list_filename, max_bytes) catch |err| {
+                const contents = std.fs.cwd().readFileAlloc(arena, abi_list_filename, max_bytes) catch |err| {
                     std.debug.warn("unable to open {s}: {}\n", .{ abi_list_filename, err });
                     std.process.exit(1);
                 };
@@ -295,22 +296,22 @@ pub fn main() !void {
                     });
 
                     // Append versions available for current lib to available_library_versions
-                    for(target_names.items)|target_name|{
+                    for (target_names.items) |target_name| {
                         var alv_gop = try available_library_versions.getOrPut(target_name);
-                        if(alv_gop.found_existing){
+                        if (alv_gop.found_existing) {
                             // lib_i must exist - otherwise something is definitely wrong.
                             // append unique versions only
                             var found = false;
-                            for(alv_gop.value_ptr.*[lib_i].items) |version_string|{
-                                if(std.mem.eql(u8, version_string, ver)){
+                            for (alv_gop.value_ptr.*[lib_i].items) |version_string| {
+                                if (std.mem.eql(u8, version_string, ver)) {
                                     found = true;
                                     break;
                                 }
                             }
-                            if(!found){
-                               try alv_gop.value_ptr.*[lib_i].append(ver);
+                            if (!found) {
+                                try alv_gop.value_ptr.*[lib_i].append(ver);
                             }
-                        }else{
+                        } else {
                             std.debug.print("target: {s} not found \n", .{target_name});
                             return error.CorruptSymbolsFile;
                         }
@@ -320,12 +321,12 @@ pub fn main() !void {
                     if (!all_syms_gop.found_existing) {
                         all_syms_gop.value_ptr.* = Symbol{
                             .name = name,
-                            .inclusions = std.ArrayList(SymbolInclusion).init(allocator),
+                            .inclusions = std.ArrayList(SymbolInclusion).init(arena),
                         };
                     }
                     var s_inclusion = SymbolInclusion{
-                        .target_names = std.ArrayList([]const u8).init(allocator),
-                        .glibc_versions = std.ArrayList([]const u8).init(allocator),
+                        .target_names = std.ArrayList([]const u8).init(arena),
+                        .glibc_versions = std.ArrayList([]const u8).init(arena),
                         .lib = lib_i,
                     };
 
@@ -374,21 +375,21 @@ pub fn main() !void {
         }
 
         const global_fn_list = blk: {
-            var list = std.ArrayList([]const u8).init(allocator);
+            var list = std.ArrayList([]const u8).init(arena);
             var it = global_fn_set.keyIterator();
             while (it.next()) |key| try list.append(key.*);
             std.sort.sort([]const u8, list.items, {}, strCmpLessThan);
             break :blk list.items;
         };
         const global_ver_list = blk: {
-            var list = std.ArrayList([]const u8).init(allocator);
+            var list = std.ArrayList([]const u8).init(arena);
             var it = global_ver_set.keyIterator();
             while (it.next()) |key| try list.append(key.*);
             std.sort.sort([]const u8, list.items, {}, versionLessThan);
             break :blk list.items;
         };
         {
-            const vers_txt_path = try fs.path.join(allocator, &[_][]const u8{ glibc_out_dir, "vers.txt" });
+            const vers_txt_path = try fs.path.join(arena, &[_][]const u8{ glibc_out_dir, "vers.txt" });
             const vers_txt_file = try fs.cwd().createFile(vers_txt_path, .{});
             defer vers_txt_file.close();
             var buffered = std.io.bufferedWriter(vers_txt_file.writer());
@@ -400,7 +401,7 @@ pub fn main() !void {
             try buffered.flush();
         }
         {
-            const fns_txt_path = try fs.path.join(allocator, &[_][]const u8{ glibc_out_dir, "fns.txt" });
+            const fns_txt_path = try fs.path.join(arena, &[_][]const u8{ glibc_out_dir, "fns.txt" });
             const fns_txt_file = try fs.cwd().createFile(fns_txt_path, .{});
             defer fns_txt_file.close();
             var buffered = std.io.bufferedWriter(fns_txt_file.writer());
@@ -421,7 +422,7 @@ pub fn main() !void {
             for (value.list.items) |*ver_fn| {
                 const gop = try fn_vers_list.getOrPut(ver_fn.name);
                 if (!gop.found_existing) {
-                    gop.value_ptr.* = std.ArrayList(usize).init(allocator);
+                    gop.value_ptr.* = std.ArrayList(usize).init(arena);
                 }
                 const ver_index = global_ver_set.get(ver_fn.ver).?;
                 if (std.mem.indexOfScalar(usize, gop.value_ptr.items, ver_index) == null) {
@@ -431,7 +432,7 @@ pub fn main() !void {
         }
 
         {
-            const abilist_txt_path = try fs.path.join(allocator, &[_][]const u8{ glibc_out_dir, "abi.txt" });
+            const abilist_txt_path = try fs.path.join(arena, &[_][]const u8{ glibc_out_dir, "abi.txt" });
             const abilist_txt_file = try fs.cwd().createFile(abilist_txt_path, .{});
             defer abilist_txt_file.close();
             var buffered = std.io.bufferedWriter(abilist_txt_file.writer());
@@ -463,10 +464,10 @@ pub fn main() !void {
     }
 
     // Write binary file
-    const symbols_file_path = try fs.path.join(allocator, &[_][]const u8{ glibc_out_dir, "symbols" });
+    const symbols_file_path = try fs.path.join(arena, &[_][]const u8{ glibc_out_dir, "symbols" });
     const symbols_file = try fs.cwd().createFile(symbols_file_path, .{});
     const sorted_ver_list = blk: {
-        var list = std.ArrayList([]const u8).init(allocator);
+        var list = std.ArrayList([]const u8).init(arena);
         var it = global_ver_set.keyIterator();
         while (it.next()) |key| try list.append(key.*);
         std.sort.sort([]const u8, list.items, {}, versionLessThan);
@@ -476,9 +477,9 @@ pub fn main() !void {
     var writer = buff.writer();
 
     // Bit flags based on index of glibc version in binary file
-    var verlist_flags = std.StringHashMap(u64).init(allocator);
+    var verlist_flags = std.StringHashMap(u64).init(arena);
     // Bit flags based on index of target in binary file
-    var target_name_flags = std.StringHashMap(u32).init(allocator);
+    var target_name_flags = std.StringHashMap(u32).init(arena);
 
     // Write version length byte and versions to binary file.
     // We assume that the number of versions does not exceed u8 size
@@ -495,11 +496,11 @@ pub fn main() !void {
 
     // Write target lenght byte and list of targets
     var targets_n: u8 = 0;
-    var target_names = std.ArrayList([]const u8).init(allocator);
+    var target_names = std.ArrayList([]const u8).init(arena);
     for (abi_lists) |*abi_list| {
         for (abi_list.targets) |target| {
             targets_n += 1;
-            const target_name = try std.fmt.allocPrint(allocator, "{s}-linux-{s}", .{ @tagName(target.arch), @tagName(target.abi) });
+            const target_name = try std.fmt.allocPrint(arena, "{s}-linux-{s}", .{ @tagName(target.arch), @tagName(target.abi) });
             try target_names.append(target_name);
         }
     }
@@ -514,20 +515,19 @@ pub fn main() !void {
     // write versions available in each library for each target
     var al_it = available_library_versions.iterator();
     // order how data is presented must match target_names
-    var available_library_versions_ordered = try allocator.alloc([7]u64, targets_n);
-    while(al_it.next())|target_libs_versions|{
-
-        for(target_names.items)|target_name, index|{
+    var available_library_versions_ordered = try arena.alloc([7]u64, targets_n);
+    while (al_it.next()) |target_libs_versions| {
+        for (target_names.items) |target_name, index| {
             // get the index for current target being processed
-            if(std.mem.eql(u8, target_name, target_libs_versions.key_ptr.*)){
+            if (std.mem.eql(u8, target_name, target_libs_versions.key_ptr.*)) {
                 // init to 0 all values
-                for(available_library_versions_ordered[index])|*lib_versions_bitset|{
+                for (available_library_versions_ordered[index]) |*lib_versions_bitset| {
                     lib_versions_bitset.* = 0;
                 }
 
                 // generate bitsets for each library
-                for(target_libs_versions.value_ptr.*)|verlists, lib_i|{
-                    for(verlists.items)|version|{
+                for (target_libs_versions.value_ptr.*) |verlists, lib_i| {
+                    for (verlists.items) |version| {
                         // version must exist
                         const ver_bitflag = verlist_flags.get(version) orelse unreachable;
                         available_library_versions_ordered[index][lib_i] |= ver_bitflag;
@@ -536,8 +536,8 @@ pub fn main() !void {
             }
         }
     }
-    for(available_library_versions_ordered)|versions_in_lib_bitsets|{
-        for(versions_in_lib_bitsets)|version_bitset|{
+    for (available_library_versions_ordered) |versions_in_lib_bitsets| {
+        for (versions_in_lib_bitsets) |version_bitset| {
             const bytes_to_write = std.mem.asBytes(&version_bitset);
             try writer.writeAll(bytes_to_write);
         }
