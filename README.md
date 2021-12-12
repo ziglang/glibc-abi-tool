@@ -140,12 +140,12 @@ We exploit this by encoding functions and object symbols in separate lists.
 4 or 8 bytes.
 
 We exploit this by encoding objects which are 4 bytes, objects which are 8
-bytes, and otherly sized objects in three separate arrays, with only the
-otherly sized object array encoding the object size.
+bytes, and otherly sized objects in three separate lists, with only the
+otherly sized object list encoding the object size.
 
 ## Binary encoding format:
 
-Data that goes into the file:
+All integers are stored little-endian.
 
 - u8 number of glibc libraries (7). For each:
   - null-terminated name, e.g. "c", "m", "dl", "ld", "pthread"
@@ -169,16 +169,14 @@ Data that goes into the file:
   - Set of Sized Inclusions
 
 Set of Unsized Inclusions:
+  - u64 set of glibc versions this inclusion applies to (1 << INDEX_IN_GLIBC_VERSION_LIST)
   - u32 set of targets this inclusion applies to (1 << INDEX_IN_TARGET_LIST)
     - last inclusion is indicated if 1 << 31 bit is set in target bitset
-  - u64 set of glibc versions this inclusion applies to (1 << INDEX_IN_GLIBC_VERSION_LIST)
-  - u8 set of glibc libraries this inclusion applies to (1 << INDEX_IN_LIBRARY_LIST)
+  - u8 index of glibc library this inclusion applies to
 
 Set of Sized Inclusions:
+  - u64 set of glibc versions this inclusion applies to (1 << INDEX_IN_GLIBC_VERSION_LIST)
   - u32 set of targets this inclusion applies to (1 << INDEX_IN_TARGET_LIST)
     - last inclusion is indicated if 1 << 31 bit is set in target bitset
-  - u64 set of glibc versions this inclusion applies to (1 << INDEX_IN_GLIBC_VERSION_LIST)
-  - u8 set of glibc libraries this inclusion applies to (1 << INDEX_IN_LIBRARY_LIST)
   - u16 object size
-
-All integers are stored little-endian.
+  - u8 index of glibc library this inclusion applies to

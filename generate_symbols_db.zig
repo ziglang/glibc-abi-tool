@@ -5,6 +5,7 @@ const mem = std.mem;
 const log = std.log;
 const fs = std.fs;
 const fmt = std.fmt;
+const assert = std.debug.assert;
 
 // Example abilist path:
 // ./sysdeps/unix/sysv/linux/aarch64/libc.abilist
@@ -40,33 +41,37 @@ const lib_names = [_][]const u8{
     "util",
 };
 
+/// This is organized by grouping together at the beginning,
+/// targets most likely to share the same symbol information.
 const zig_targets = [_]ZigTarget{
     // zig fmt: off
-    .{ .arch = .aarch64    , .abi = .gnu },
-    .{ .arch = .aarch64_be , .abi = .gnu },
-    .{ .arch = .s390x      , .abi = .gnu },
     .{ .arch = .arm        , .abi = .gnueabi },
     .{ .arch = .armeb      , .abi = .gnueabi },
     .{ .arch = .arm        , .abi = .gnueabihf },
     .{ .arch = .armeb      , .abi = .gnueabihf },
-    .{ .arch = .sparc      , .abi = .gnu },
-    .{ .arch = .sparcel    , .abi = .gnu },
-    .{ .arch = .sparcv9    , .abi = .gnu },
-    .{ .arch = .mips64el   , .abi = .gnuabi64 },
-    .{ .arch = .mips64     , .abi = .gnuabi64 },
-    .{ .arch = .mips64el   , .abi = .gnuabin32 },
-    .{ .arch = .mips64     , .abi = .gnuabin32 },
     .{ .arch = .mipsel     , .abi = .gnueabihf },
     .{ .arch = .mips       , .abi = .gnueabihf },
     .{ .arch = .mipsel     , .abi = .gnueabi },
     .{ .arch = .mips       , .abi = .gnueabi },
-    .{ .arch = .x86_64     , .abi = .gnu },
-    .{ .arch = .x86_64     , .abi = .gnux32 },
     .{ .arch = .i386       , .abi = .gnu },
-    .{ .arch = .powerpc64le, .abi = .gnu },
-    .{ .arch = .powerpc64  , .abi = .gnu },
+    .{ .arch = .sparc      , .abi = .gnu },
+    .{ .arch = .sparcel    , .abi = .gnu },
     .{ .arch = .powerpc    , .abi = .gnueabi },
     .{ .arch = .powerpc    , .abi = .gnueabihf },
+
+    .{ .arch = .powerpc64le, .abi = .gnu },
+    .{ .arch = .powerpc64  , .abi = .gnu },
+    .{ .arch = .mips64el   , .abi = .gnuabi64 },
+    .{ .arch = .mips64     , .abi = .gnuabi64 },
+    .{ .arch = .mips64el   , .abi = .gnuabin32 },
+    .{ .arch = .mips64     , .abi = .gnuabin32 },
+    .{ .arch = .aarch64    , .abi = .gnu },
+    .{ .arch = .aarch64_be , .abi = .gnu },
+    .{ .arch = .x86_64     , .abi = .gnu },
+    .{ .arch = .x86_64     , .abi = .gnux32 },
+    .{ .arch = .sparcv9    , .abi = .gnu },
+
+    .{ .arch = .s390x      , .abi = .gnu },
     // zig fmt: on
 };
 
@@ -237,12 +242,12 @@ const ver23 = std.builtin.Version{
 };
 
 const Symbol = struct {
-    type: [lib_names.len][zig_targets.len][versions.len]Type = empty_row3,
+    type: [lib_names.len][zig_targets.len][versions.len]Type = empty_type,
     is_fn: bool = undefined,
 
     const empty_row = [1]Type{.absent} ** versions.len;
     const empty_row2 = [1]@TypeOf(empty_row){empty_row} ** zig_targets.len;
-    const empty_row3 = [1]@TypeOf(empty_row2){empty_row2} ** lib_names.len;
+    const empty_type = [1]@TypeOf(empty_row2){empty_row2} ** lib_names.len;
 
     const Type = union(enum) {
         absent,
@@ -261,10 +266,38 @@ const Symbol = struct {
             };
         }
     };
+
+    /// Return true if and only if the inclusion has no false positives.
+    fn testInclusion(symbol: Symbol, inc: Inclusion, lib_i: u8) bool {
+        for (symbol.type[lib_i]) |versions_row, targets_i| {
+            for (versions_row) |ty, versions_i| {
+                switch (ty) {
+                    .absent => {
+                        if ((inc.targets & (@as(u32, 1) << @intCast(u5, targets_i)) ) != 0 and
+                            (inc.versions & (@as(u64, 1) << @intCast(u6, versions_i)) ) != 0)
+                        {
+                            return false;
+                        }
+                    },
+                    .function, .object => continue,
+                }
+            }
+        }
+        return true;
+    }
 };
 
-// LSB is first version.
-const VersionSet = u64;
+const Inclusion = struct {
+    versions: u64,
+    targets: u32,
+    lib: u8,
+    size: u16,
+};
+
+const NamedInclusion = struct {
+    name: []const u8,
+    inc: Inclusion,
+};
 
 pub fn main() !void {
     var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -286,12 +319,18 @@ pub fn main() !void {
 
         break :v fs_versions.items;
     };
-    std.sort.sort(Version, fs_versions, {}, versionDescending);
+    std.sort.sort(Version, fs_versions, {}, versionAscending);
 
     var symbols = std.StringHashMap(Symbol).init(arena);
 
+    // Before this version the abilist files had a different structure.
+    const first_fs_ver = std.builtin.Version{
+        .major = 2,
+        .minor = 23,
+    };
+
     for (fs_versions) |fs_ver| {
-        if (fs_ver.order(ver23) == .lt) {
+        if (fs_ver.order(first_fs_ver) == .lt) {
             log.warn("skipping glibc version {} because the abilist files have a different format", .{fs_ver});
             continue;
         }
@@ -411,6 +450,15 @@ pub fn main() !void {
                     else
                         fatal("unrecognized symbol type '{s}' on line '{s}'", .{category, line});
 
+                    // Detect incorrect information when a symbol migrates from one library
+                    // to another.
+                    if (ver.order(fs_ver) == .lt and fs_ver.order(first_fs_ver) != .eq) {
+                        // This abilist is claiming that this version is found in this
+                        // library. However if that was true, we would have already
+                        // noted it in the previous set of abilists.
+                        continue;
+                    }
+
                     const gop = try symbols.getOrPut(name);
                     if (!gop.found_existing) {
                         gop.value_ptr.* = .{};
@@ -463,11 +511,338 @@ pub fn main() !void {
     // For functions, the only type possibilities are `absent` or `function`.
     // We use a greedy algorithm, "spreading" the inclusion from a single point to
     // as many targets as possible, then to as many versions as possible.
+    var fn_inclusions = std.ArrayList(NamedInclusion).init(arena);
+    var fn_count: usize = 0;
+    const none_handled = blk: {
+        const empty_row = [1]bool{false} ** versions.len;
+        const empty_row2 = [1]@TypeOf(empty_row){empty_row} ** zig_targets.len;
+        const empty_row3 = [1]@TypeOf(empty_row2){empty_row2} ** lib_names.len;
+        break :blk empty_row3;
+    };
+    {
+        var it = symbols.iterator();
+        while (it.next()) |entry| {
+            if (!entry.value_ptr.is_fn) continue;
+            fn_count += 1;
+
+            // Find missing inclusions. We can't move on from this symbol until
+            // all the present symbols have been handled.
+            var handled = none_handled;
+            var libs_handled = [1]bool{false} ** lib_names.len;
+            for (entry.value_ptr.type) |targets_row, lib_i_usize| {
+                if (libs_handled[lib_i_usize]) continue;
+                const lib_i = @intCast(u8, lib_i_usize);
+
+                var wanted_targets: u32 = 0;
+                var wanted_versions_multi = [1]u64{0} ** zig_targets.len;
+
+                for (targets_row) |versions_row, targets_i| {
+                    for (versions_row) |ty, versions_i| {
+                        if (handled[lib_i][targets_i][versions_i]) continue;
+
+                        switch (ty) {
+                            .absent => continue,
+                            .function => {
+                                wanted_targets |= @as(u32, 1) << @intCast(u5, targets_i);
+                                wanted_versions_multi[targets_i] |=
+                                    @as(u64, 1) << @intCast(u6, versions_i);
+                            },
+                            .object => unreachable,
+                        }
+                    }
+                }
+                if (wanted_targets == 0) {
+                    // This library is done.
+                    libs_handled[lib_i] = true;
+                    continue;
+                }
+
+                // Put one target and one version into the inclusion.
+                const first_targ_index = @ctz(u32, wanted_targets);
+                var wanted_versions = wanted_versions_multi[first_targ_index];
+                const first_ver_index = @ctz(u64, wanted_versions);
+                var inc: Inclusion = .{
+                    .versions = @as(u64, 1) << @intCast(u6, first_ver_index),
+                    .targets = @as(u32, 1) << @intCast(u5, first_targ_index),
+                    .lib = @intCast(u8, lib_i),
+                    .size = 0,
+                };
+                wanted_targets &= ~(@as(u32, 1) << @intCast(u5, first_targ_index));
+                wanted_versions &= ~(@as(u64, 1) << @intCast(u6, first_ver_index));
+                assert(entry.value_ptr.testInclusion(inc, lib_i));
+
+                // Expand the inclusion one at a time to include as many
+                // of the rest of the versions as possible.
+                while (wanted_versions != 0) {
+                    const test_ver_index = @ctz(u64, wanted_versions);
+                    const new_inc = .{
+                        .versions = inc.versions | (@as(u64, 1) << @intCast(u6, test_ver_index)),
+                        .targets = inc.targets,
+                        .lib = inc.lib,
+                        .size = 0,
+                    };
+                    if (!entry.value_ptr.testInclusion(new_inc, lib_i)) break;
+
+                    inc = new_inc;
+                    wanted_versions &= ~(@as(u64, 1) << @intCast(u6, test_ver_index));
+                }
+
+                // Expand the inclusion one at a time to include as many
+                // of the rest of the targets as possible.
+                while (wanted_targets != 0) {
+                    const test_targ_index = @ctz(u64, wanted_targets);
+                    const new_inc = .{
+                        .versions = inc.versions,
+                        .targets = inc.targets | (@as(u32, 1) << @intCast(u5,test_targ_index)),
+                        .lib = inc.lib,
+                        .size = 0,
+                    };
+                    if (!entry.value_ptr.testInclusion(new_inc, lib_i)) break;
+
+                    inc = new_inc;
+                    wanted_targets &= ~(@as(u32, 1) << @intCast(u5, test_targ_index));
+                }
+
+                try fn_inclusions.append(.{
+                    .name = entry.key_ptr.*, 
+                    .inc = inc,
+                });
+
+                // Mark stuff as handled by this inclusion.
+                for (targets_row) |versions_row, targets_i| {
+                    for (versions_row) |_, versions_i| {
+                        if (handled[lib_i][targets_i][versions_i]) continue;
+                        if ((inc.targets & (@as(u32, 1) << @intCast(u5, targets_i)) ) != 0 and
+                            (inc.versions & (@as(u64, 1) << @intCast(u6, versions_i)) ) != 0)
+                        {
+                            handled[lib_i][targets_i][versions_i] = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    log.info("total function inclusions: {d}", .{fn_inclusions.items.len});
+    log.info("average inclusions per function: {d}", .{
+        @intToFloat(f32, fn_inclusions.items.len) / @intToFloat(f32, fn_count),
+    });
+
+    //// Next is objects that are exactly 8 bytes.
+    //var obj8_inclusions = std.ArrayList(Inclusion).init(arena);
+    //var obj8_count: usize = 0;
+
+    //_ = obj8_inclusions;
+    //_ = obj8_count;
+
+    var obj_inclusions = std.ArrayList(NamedInclusion).init(arena);
+    var obj_count: usize = 0;
+    {
+        var it = symbols.iterator();
+        while (it.next()) |entry| {
+            if (entry.value_ptr.is_fn) continue;
+            obj_count += 1;
+
+            // Find missing inclusions. We can't move on from this symbol until
+            // all the present symbols have been handled.
+            var handled = none_handled;
+            var libs_handled = [1]bool{false} ** lib_names.len;
+            for (entry.value_ptr.type) |targets_row, lib_i_usize| {
+                if (libs_handled[lib_i_usize]) continue;
+                const lib_i = @intCast(u8, lib_i_usize);
+
+                var wanted_targets: u32 = 0;
+                var wanted_versions_multi = [1]u64{0} ** zig_targets.len;
+                var wanted_size: u16 = 0;
+
+                for (targets_row) |versions_row, targets_i| {
+                    for (versions_row) |ty, versions_i| {
+                        if (handled[lib_i][targets_i][versions_i]) continue;
+
+                        switch (ty) {
+                            .absent => continue,
+                            .object => |size| {
+                                wanted_targets |= @as(u32, 1) << @intCast(u5, targets_i);
+
+                                var ok = false;
+                                if (wanted_size == 0) {
+                                    wanted_size = size;
+                                    ok = true;
+                                } else if (wanted_size == size) {
+                                    ok = true;
+                                }
+                                if (ok) {
+                                    wanted_versions_multi[targets_i] |=
+                                        @as(u64, 1) << @intCast(u6, versions_i);
+                                }
+                            },
+                            .function => unreachable,
+                        }
+                    }
+                }
+                if (wanted_targets == 0) {
+                    // This library is done.
+                    libs_handled[lib_i] = true;
+                    continue;
+                }
+
+                // Put one target and one version into the inclusion.
+                const first_targ_index = @ctz(u32, wanted_targets);
+                var wanted_versions = wanted_versions_multi[first_targ_index];
+                const first_ver_index = @ctz(u64, wanted_versions);
+                var inc: Inclusion = .{
+                    .versions = @as(u64, 1) << @intCast(u6, first_ver_index),
+                    .targets = @as(u32, 1) << @intCast(u5, first_targ_index),
+                    .lib = @intCast(u8, lib_i),
+                    .size = wanted_size,
+                };
+                wanted_targets &= ~(@as(u32, 1) << @intCast(u5, first_targ_index));
+                wanted_versions &= ~(@as(u64, 1) << @intCast(u6, first_ver_index));
+                assert(entry.value_ptr.testInclusion(inc, lib_i));
+
+                // Expand the inclusion one at a time to include as many
+                // of the rest of the versions as possible.
+                while (wanted_versions != 0) {
+                    const test_ver_index = @ctz(u64, wanted_versions);
+                    const new_inc = .{
+                        .versions = inc.versions | (@as(u64, 1) << @intCast(u6, test_ver_index)),
+                        .targets = inc.targets,
+                        .lib = inc.lib,
+                        .size = wanted_size,
+                    };
+                    if (!entry.value_ptr.testInclusion(new_inc, lib_i)) break;
+
+                    inc = new_inc;
+                    wanted_versions &= ~(@as(u64, 1) << @intCast(u6, test_ver_index));
+                }
+
+                // Expand the inclusion one at a time to include as many
+                // of the rest of the targets as possible.
+                while (wanted_targets != 0) {
+                    const test_targ_index = @ctz(u64, wanted_targets);
+                    const new_inc = .{
+                        .versions = inc.versions,
+                        .targets = inc.targets | (@as(u32, 1) << @intCast(u5,test_targ_index)),
+                        .lib = inc.lib,
+                        .size = wanted_size,
+                    };
+                    if (!entry.value_ptr.testInclusion(new_inc, lib_i)) break;
+
+                    inc = new_inc;
+                    wanted_targets &= ~(@as(u32, 1) << @intCast(u5, test_targ_index));
+                }
+
+                try obj_inclusions.append(.{
+                    .name = entry.key_ptr.*, 
+                    .inc = inc,
+                });
+
+                // Mark stuff as handled by this inclusion.
+                for (targets_row) |versions_row, targets_i| {
+                    for (versions_row) |_, versions_i| {
+                        if (handled[lib_i][targets_i][versions_i]) continue;
+                        if ((inc.targets & (@as(u32, 1) << @intCast(u5, targets_i)) ) != 0 and
+                            (inc.versions & (@as(u64, 1) << @intCast(u6, versions_i)) ) != 0)
+                        {
+                            handled[lib_i][targets_i][versions_i] = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    log.info("total object inclusions: {d}", .{obj_inclusions.items.len});
+    log.info("average inclusions per object: {d}", .{
+        @intToFloat(f32, obj_inclusions.items.len) / @intToFloat(f32, obj_count),
+    });
+
+    // Serialize to the output file.
+    var af = try fs.cwd().atomicFile("abilists", .{});
+    defer af.deinit();
+
+    var bw = std.io.bufferedWriter(af.file.writer());
+    const w = bw.writer();
+
+    // Libraries
+    try w.writeByte(lib_names.len);
+    for (lib_names) |lib_name| {
+        try w.writeAll(lib_name);
+        try w.writeByte(0);
+    }
+
+    // Versions
+    try w.writeByte(versions.len);
+    for (versions) |ver| {
+        try w.writeByte(@intCast(u8, ver.major));
+        try w.writeByte(@intCast(u8, ver.minor));
+        try w.writeByte(@intCast(u8, ver.patch));
+    }
+
+    // Targets
+    try w.writeByte(zig_targets.len);
+    for (zig_targets) |zt| {
+        try w.print("{s}-linux-{s}\x00", .{@tagName(zt.arch), @tagName(zt.abi)});
+    }
+
+    {
+        // Function Inclusions
+        try w.writeIntLittle(u16, @intCast(u16, fn_inclusions.items.len));
+        var i: usize = 0;
+        while (i < fn_inclusions.items.len) {
+            const name = fn_inclusions.items[i].name;
+            try w.writeAll(name);
+            try w.writeByte(0);
+            while (true) {
+                const inc = fn_inclusions.items[i].inc;
+                i += 1;
+                const set_terminal_bit = i >= fn_inclusions.items.len or
+                    !mem.eql(u8, name, fn_inclusions.items[i].name);
+                var target_bitset = inc.targets;
+                if (set_terminal_bit) {
+                    target_bitset |= 1 << 31;
+                }
+                try w.writeIntLittle(u64, inc.versions);
+                try w.writeIntLittle(u32, target_bitset);
+                try w.writeByte(inc.lib);
+                if (set_terminal_bit) break;
+            }
+        }
+    }
+
+    {
+        // Object Inclusions
+        try w.writeIntLittle(u16, @intCast(u16, obj_inclusions.items.len));
+        var i: usize = 0;
+        while (i < obj_inclusions.items.len) {
+            const name = obj_inclusions.items[i].name;
+            try w.writeAll(name);
+            try w.writeByte(0);
+            while (true) {
+                const inc = obj_inclusions.items[i].inc;
+                i += 1;
+                const set_terminal_bit = i >= obj_inclusions.items.len or
+                    !mem.eql(u8, name, obj_inclusions.items[i].name);
+                var target_bitset = inc.targets;
+                if (set_terminal_bit) {
+                    target_bitset |= 1 << 31;
+                }
+                try w.writeIntLittle(u64, inc.versions);
+                try w.writeIntLittle(u32, target_bitset);
+                try w.writeIntLittle(u16, inc.size);
+                try w.writeByte(inc.lib);
+                if (set_terminal_bit) break;
+            }
+        }
+    }
+
+    try bw.flush();
+    try af.finish();
 }
 
-fn versionDescending(context: void, a: Version, b: Version) bool {
+fn versionAscending(context: void, a: Version, b: Version) bool {
     _ = context;
-    return b.order(a) == .lt;
+    return a.order(b) == .lt;
 }
 
 fn fatal(comptime format: []const u8, args: anytype) noreturn {
