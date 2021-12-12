@@ -28,19 +28,19 @@ zig run collect_abilist_files.zig -- $GLIBC_GIT_REPO_PATH
 
 ## Updating Zig
 
-1. Run `generate_symbols_db.zig` at the root of this repo.
+1. Run `consolidate.zig` at the root of this repo.
 
 ```sh
-zig run generate_symbols_db.zig
+zig run consolidate.zig
 ```
 
-This will generate the file `abilist` which you can then inspect and make sure
+This will generate the file `abilists` which you can then inspect and make sure
 it is OK. Copy it to `$ZIG_GIT_REPO_PATH/lib/libc/glibc/abilist`.
 
-## Debugging an abilist file
+## Debugging an abilists file
 
 ```sh
-zig run list_symbols.zig -- abilist
+zig run list_symbols.zig -- abilists
 ```
 
 ## Strategy
@@ -139,9 +139,8 @@ We exploit this by encoding functions and object symbols in separate lists.
 51% of all object entries are 4 bytes, and 68% of all object entries are either
 4 or 8 bytes.
 
-We exploit this by encoding objects which are 4 bytes, objects which are 8
-bytes, and otherly sized objects in three separate lists, with only the
-otherly sized object list encoding the object size.
+This observation is not exploited because there are only 105 object inclusions
+generated the naive way.
 
 ## Binary encoding format:
 
@@ -155,17 +154,11 @@ All integers are stored little-endian.
   - u8 patch
 - u8 number of targets (20). For each:
   - null-terminated target triple
-- u16 number of functions (3970). For each:
-  - null-terminated symbol name
+- u16 number of function inclusions (4300)
+  - null-terminated symbol name (not repeated for same-symbol inclusions)
   - Set of Unsized Inclusions
-- u16 number of objects which are 4 bytes (26233). For each:
-  - null-terminated symbol name
-  - Set of Unsized Inclusions
-- u16 number of objects which are 8 bytes (8323). For each:
-  - null-terminated symbol name
-  - Set of Unsized Inclusions
-- u16 number of objects which are not 4 or 8 bytes (16429). For each:
-  - null-terminated symbol name
+- u16 number of object inclusion sets (105)
+  - null-terminated symbol name (not repeated for same-symbol inclusions)
   - Set of Sized Inclusions
 
 Set of Unsized Inclusions:
