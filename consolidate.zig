@@ -513,6 +513,7 @@ pub fn main() !void {
     // as many targets as possible, then to as many versions as possible.
     var fn_inclusions = std.ArrayList(NamedInclusion).init(arena);
     var fn_count: usize = 0;
+    var fn_version_popcount: usize = 0;
     const none_handled = blk: {
         const empty_row = [1]bool{false} ** versions.len;
         const empty_row2 = [1]@TypeOf(empty_row){empty_row} ** zig_targets.len;
@@ -603,6 +604,8 @@ pub fn main() !void {
                     wanted_targets &= ~(@as(u32, 1) << @intCast(u5, test_targ_index));
                 }
 
+                fn_version_popcount += @popCount(u64, inc.versions);
+
                 try fn_inclusions.append(.{
                     .name = entry.key_ptr.*, 
                     .inc = inc,
@@ -625,18 +628,15 @@ pub fn main() !void {
 
     log.info("total function inclusions: {d}", .{fn_inclusions.items.len});
     log.info("average inclusions per function: {d}", .{
-        @intToFloat(f32, fn_inclusions.items.len) / @intToFloat(f32, fn_count),
+        @intToFloat(f64, fn_inclusions.items.len) / @intToFloat(f64, fn_count),
     });
-
-    //// Next is objects that are exactly 8 bytes.
-    //var obj8_inclusions = std.ArrayList(Inclusion).init(arena);
-    //var obj8_count: usize = 0;
-
-    //_ = obj8_inclusions;
-    //_ = obj8_count;
+    log.info("average function versions bits set: {d}", .{
+        @intToFloat(f64, fn_version_popcount) / @intToFloat(f64, fn_inclusions.items.len),
+    });
 
     var obj_inclusions = std.ArrayList(NamedInclusion).init(arena);
     var obj_count: usize = 0;
+    var obj_version_popcount: usize = 0;
     {
         var it = symbols.iterator();
         while (it.next()) |entry| {
@@ -732,6 +732,8 @@ pub fn main() !void {
                     wanted_targets &= ~(@as(u32, 1) << @intCast(u5, test_targ_index));
                 }
 
+                obj_version_popcount += @popCount(u64, inc.versions);
+
                 try obj_inclusions.append(.{
                     .name = entry.key_ptr.*, 
                     .inc = inc,
@@ -755,6 +757,9 @@ pub fn main() !void {
     log.info("total object inclusions: {d}", .{obj_inclusions.items.len});
     log.info("average inclusions per object: {d}", .{
         @intToFloat(f32, obj_inclusions.items.len) / @intToFloat(f32, obj_count),
+    });
+    log.info("average objects versions bits set: {d}", .{
+        @intToFloat(f64, obj_version_popcount) / @intToFloat(f64, obj_inclusions.items.len),
     });
 
     // Serialize to the output file.
@@ -805,6 +810,7 @@ pub fn main() !void {
                 try w.writeIntLittle(u64, inc.versions);
                 try w.writeIntLittle(u32, target_bitset);
                 try w.writeByte(inc.lib);
+
                 if (set_terminal_bit) break;
             }
         }
