@@ -1,8 +1,8 @@
 # glibc ABI Tool
 
-This repository contains `.abilist` files from glibc. These files are used to
-generate symbol mapping files that are used with Zig to target any version of
-glibc.
+This repository contains `.abilist` files from every version of glibc. These
+files are used to generate symbol mapping files that are shipped with Zig to
+target any version of glibc.
 
 ## Adding new glibc version `.abilist` files
 
@@ -26,35 +26,159 @@ zig run collect_abilist_files.zig -- $GLIBC_GIT_REPO_PATH
 
 5. Inspect the changes and then commit these new files into git.
 
-## Updating .abilist symbols file for zig
+## Updating Zig
 
-1. Run `update_glibc.zig` at the root of this repo
+1. Run `generate_symbols_db.zig` at the root of this repo.
+
+```sh
+zig run generate_symbols_db.zig
+```
+
+This will generate the file `abilist` which you can then inspect and make sure
+it is OK. Copy it to `$ZIG_GIT_REPO_PATH/lib/libc/glibc/abilist`.
+
+## Debugging an abilist file
+
+```sh
+zig run list_symbols.zig -- abilist
+```
+
+## Strategy
+
+The abilist files from the latest glibc are *almost* enough to completely
+encode all the information that we need to generate the symbols db. The only
+problem is when a function migrates from one library to another. For example,
+in glibc 2.32, the function `pthread_sigmask` migrated from libpthread to libc,
+and the latest abilist files only show it in libc. However, if a user targets
+glibc 2.31, Zig needs to know to put the symbol into libpthread.so and not
+libc.so.
+
+In glibc upstream, they simply renamed the abilist files from pthread.abilist to
+libc.abilist. This resulted in the following line being present in libc.abilist
+in glibc 2.32 and later:
 
 ```
-zig run update_glibc.zig -- glibc/ path/to/zig/lib
+GLIBC_2.0 pthread_sigmask F
 ```
 
-symbol mapping files will be updated in `path/to/zig/lib/libc/glibc`.
+This implies that in glibc 2.0, libc.so has the `pthread_sigmask` symbol, which
+is incorrect, because it was only found in libpthread.so.
+
+This is why this repository contains abilist files from all past
+versions of glibc as well as the most recent one - it allows us to
+detect this situation, and generate a corrected symbols database.
+
+The strategy is to start with the earliest glibc version, consume the abilist
+files, and then treat that data as correct. Next we move on to the next
+earliest glibc version, but now we have to detect a contradiction: if the newer
+glibc version claims that e.g. `pthread_sigmask` is available in glibc 2.0,
+when our correct data says that it does not, we ignore that incorrect piece of
+data. However we must take in new data if the version it talks about is greater
+than the version corresponding to the "correct" data set.
+
+After merging in the newer glibc version, we mark the current dataset as
+"correct" and move on to the next, and so on until we have processed all the
+sets of abilist files.
+
+When this process completes, we have in memory something that looks like this:
+
+* For each glibc symbol
+  * For each glibc library
+    * For each target
+      * For each glibc version
+        * Whether the symbol is absent, a function, or an object+size
+
+And our job is now to *encode* this information into a file that does not waste
+installation size and yet remains simple to decode and use in the Zig compiler.
+
+### Inclusions
+
+Next, the script generates the minimal number of "inclusions" to encode all the
+information. An "inclusion" is:
+
+ * A symbol name.
+ * The set of targets this inclusion applies to.
+ * The set of glibc versions this inclusion applies to.
+ * The set of libraries this inclusion applies to.
+ * Whether it is a function or object, and if an object, its size in bytes.
+
+As an example, consider `dlopen`. An inclusion is something like this:
+
+ * `dlopen`
+ * targets: aarch64-linux-gnu powerpc64le-linux-gnu
+ * versions: 2.17 2.34
+ * libraries: libdl.so
+ * type: function
+
+This does not cover all the places `dlopen` can be found however. There will
+need to be more inclusions for more targets, for example:
+
+ * `dlopen`
+ * targets: x86_64-linux-gnu
+ * versions: 2.2.5 2.34
+ * libraries: libdl.so
+ * type: function
+
+Now we have more coverage of all the places `dlopen` can be found, but there are
+yet more that need to be emitted. The script emits as many inclusions as
+necessary so that all the information is represented.
+
+Next we make few observations which lead to a more compact data encoding.
+
+### Observation: All symbols are consistently either functions or objects
+
+There is no symbol that is a function on one target, and an object on another
+target. Similarly there is no symbol that is a function on one glibc version,
+but an object in another, and there is no symbol that is a function in one
+shared library, but an object in another.
+
+We exploit this by encoding functions and object symbols in separate lists.
+
+### Observation: Over half of the objects are exactly 4 bytes
+
+51% of all object entries are 4 bytes, and 68% of all object entries are either
+4 or 8 bytes.
+
+We exploit this by encoding objects which are 4 bytes, objects which are 8
+bytes, and otherly sized objects in three separate arrays, with only the
+otherly sized object array encoding the object size.
 
 ## Binary encoding format:
 
-- 1 byte - number of glibc versions
-- ordered list of glibc versions terminated by newline byte
-- 1 byte - number of targets
-- ordered list of targets terminated by newline byte
-- number of targets amount of entries x 7 (one entry for each library). Each entry is:
-  - u64 (8 bytes) bit set for versions available in library for that particular target.
-  - in total this is 56 bytes (7x8) per each target
-- list of symbols:
-  - null terminated symbol name
-  - list of inclusions
-    - u32 (4 bytes) bitset for targets (1 << (INDEX_IN_TARGET_LIST))
-      - last inclusion is indicated if 1 << 31 bit is set in target bitset
-    - u64 (8 bytes) glibc version bitset (1 << (INDEX_IN_GLIBC_VERSION_LIST))
-    - u8 (1 byte) library index from a known library names list
+Data that goes into the file:
 
-## List all symbols with their library, targets and versions in current symbols file
+- u8 number of glibc libraries (7). For each:
+  - null-terminated name, e.g. "c", "m", "dl", "ld", "pthread"
+- u8 number of glibc versions (44), sorted ascending. For each:
+  - u8 major
+  - u8 minor
+  - u8 patch
+- u8 number of targets (20). For each:
+  - null-terminated target triple
+- u16 number of functions (3970). For each:
+  - null-terminated symbol name
+  - Set of Unsized Inclusions
+- u16 number of objects which are 4 bytes (26233). For each:
+  - null-terminated symbol name
+  - Set of Unsized Inclusions
+- u16 number of objects which are 8 bytes (8323). For each:
+  - null-terminated symbol name
+  - Set of Unsized Inclusions
+- u16 number of objects which are not 4 or 8 bytes (16429). For each:
+  - null-terminated symbol name
+  - Set of Sized Inclusions
 
-```bash
-zig run list_symbols.zig
-```
+Set of Unsized Inclusions:
+  - u32 set of targets this inclusion applies to (1 << INDEX_IN_TARGET_LIST)
+    - last inclusion is indicated if 1 << 31 bit is set in target bitset
+  - u64 set of glibc versions this inclusion applies to (1 << INDEX_IN_GLIBC_VERSION_LIST)
+  - u8 set of glibc libraries this inclusion applies to (1 << INDEX_IN_LIBRARY_LIST)
+
+Set of Sized Inclusions:
+  - u32 set of targets this inclusion applies to (1 << INDEX_IN_TARGET_LIST)
+    - last inclusion is indicated if 1 << 31 bit is set in target bitset
+  - u64 set of glibc versions this inclusion applies to (1 << INDEX_IN_GLIBC_VERSION_LIST)
+  - u8 set of glibc libraries this inclusion applies to (1 << INDEX_IN_LIBRARY_LIST)
+  - u16 object size
+
+All integers are stored little-endian.
