@@ -32,10 +32,10 @@ const ZigTarget = struct {
 };
 
 const lib_names = [_][]const u8{
-    "c",
-    "dl",
     "m",
     "pthread",
+    "c",
+    "dl",
     "rt",
     "ld",
     "util",
