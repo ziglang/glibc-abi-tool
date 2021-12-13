@@ -530,9 +530,13 @@ pub fn main() !void {
             // all the present symbols have been handled.
             var handled = none_handled;
             var libs_handled = [1]bool{false} ** lib_names.len;
-            for (entry.value_ptr.type) |targets_row, lib_i_usize| {
-                if (libs_handled[lib_i_usize]) continue;
-                const lib_i = @intCast(u8, lib_i_usize);
+            var lib_i: u8 = 0;
+            while (lib_i < lib_names.len) {
+                if (libs_handled[lib_i]) {
+                    lib_i += 1;
+                    continue;
+                }
+                const targets_row = entry.value_ptr.type[lib_i];
 
                 var wanted_targets: u32 = 0;
                 var wanted_versions_multi = [1]u64{0} ** zig_targets.len;
@@ -582,9 +586,9 @@ pub fn main() !void {
                         .lib = inc.lib,
                         .size = 0,
                     };
-                    if (!entry.value_ptr.testInclusion(new_inc, lib_i)) break;
-
-                    inc = new_inc;
+                    if (entry.value_ptr.testInclusion(new_inc, lib_i)) {
+                        inc = new_inc;
+                    }
                     wanted_versions &= ~(@as(u64, 1) << @intCast(u6, test_ver_index));
                 }
 
@@ -598,9 +602,9 @@ pub fn main() !void {
                         .lib = inc.lib,
                         .size = 0,
                     };
-                    if (!entry.value_ptr.testInclusion(new_inc, lib_i)) break;
-
-                    inc = new_inc;
+                    if (entry.value_ptr.testInclusion(new_inc, lib_i)) {
+                        inc = new_inc;
+                    }
                     wanted_targets &= ~(@as(u32, 1) << @intCast(u5, test_targ_index));
                 }
 
@@ -647,13 +651,17 @@ pub fn main() !void {
             // all the present symbols have been handled.
             var handled = none_handled;
             var libs_handled = [1]bool{false} ** lib_names.len;
-            for (entry.value_ptr.type) |targets_row, lib_i_usize| {
-                if (libs_handled[lib_i_usize]) continue;
-                const lib_i = @intCast(u8, lib_i_usize);
+            var lib_i: u8 = 0;
+            while (lib_i < lib_names.len) {
+                if (libs_handled[lib_i]) {
+                    lib_i += 1;
+                    continue;
+                }
+                const targets_row = entry.value_ptr.type[lib_i];
 
                 var wanted_targets: u32 = 0;
                 var wanted_versions_multi = [1]u64{0} ** zig_targets.len;
-                var wanted_size: u16 = 0;
+                var wanted_sizes_multi = [1]u16{0} ** zig_targets.len;
 
                 for (targets_row) |versions_row, targets_i| {
                     for (versions_row) |ty, versions_i| {
@@ -665,10 +673,10 @@ pub fn main() !void {
                                 wanted_targets |= @as(u32, 1) << @intCast(u5, targets_i);
 
                                 var ok = false;
-                                if (wanted_size == 0) {
-                                    wanted_size = size;
+                                if (wanted_sizes_multi[targets_i] == 0) {
+                                    wanted_sizes_multi[targets_i] = size;
                                     ok = true;
-                                } else if (wanted_size == size) {
+                                } else if (wanted_sizes_multi[targets_i] == size) {
                                     ok = true;
                                 }
                                 if (ok) {
@@ -689,6 +697,7 @@ pub fn main() !void {
                 // Put one target and one version into the inclusion.
                 const first_targ_index = @ctz(u32, wanted_targets);
                 var wanted_versions = wanted_versions_multi[first_targ_index];
+                const wanted_size = wanted_sizes_multi[first_targ_index];
                 const first_ver_index = @ctz(u64, wanted_versions);
                 var inc: Inclusion = .{
                     .versions = @as(u64, 1) << @intCast(u6, first_ver_index),
@@ -710,9 +719,9 @@ pub fn main() !void {
                         .lib = inc.lib,
                         .size = wanted_size,
                     };
-                    if (!entry.value_ptr.testInclusion(new_inc, lib_i)) break;
-
-                    inc = new_inc;
+                    if (entry.value_ptr.testInclusion(new_inc, lib_i)) {
+                        inc = new_inc;
+                    }
                     wanted_versions &= ~(@as(u64, 1) << @intCast(u6, test_ver_index));
                 }
 
@@ -720,15 +729,17 @@ pub fn main() !void {
                 // of the rest of the targets as possible.
                 while (wanted_targets != 0) {
                     const test_targ_index = @ctz(u64, wanted_targets);
-                    const new_inc = .{
-                        .versions = inc.versions,
-                        .targets = inc.targets | (@as(u32, 1) << @intCast(u5,test_targ_index)),
-                        .lib = inc.lib,
-                        .size = wanted_size,
-                    };
-                    if (!entry.value_ptr.testInclusion(new_inc, lib_i)) break;
-
-                    inc = new_inc;
+                    if (wanted_sizes_multi[test_targ_index] == wanted_size) {
+                        const new_inc = .{
+                            .versions = inc.versions,
+                            .targets = inc.targets | (@as(u32, 1) << @intCast(u5,test_targ_index)),
+                            .lib = inc.lib,
+                            .size = wanted_size,
+                        };
+                        if (entry.value_ptr.testInclusion(new_inc, lib_i)) {
+                            inc = new_inc;
+                        }
+                    }
                     wanted_targets &= ~(@as(u32, 1) << @intCast(u5, test_targ_index));
                 }
 

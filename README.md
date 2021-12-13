@@ -2,7 +2,9 @@
 
 This repository contains `.abilist` files from every version of glibc. These
 files are used to generate symbol mapping files that are shipped with Zig to
-target any version of glibc.
+target any version of glibc. This repository is for Zig maintainers to use
+when a new glibc version is tagged upstream; Zig users have no need for this
+repository.
 
 ## Adding new glibc version `.abilist` files
 
@@ -139,8 +141,8 @@ We exploit this by encoding functions and object symbols in separate lists.
 51% of all object entries are 4 bytes, and 68% of all object entries are either
 4 or 8 bytes.
 
-This observation is not exploited because there are only 105 object inclusions
-generated the naive way.
+Total object inclusions are 765. If we stored 4 and 8 byte objects in separate
+lists, this would save 2 bytes from 520 inclusions, totaling 1 KB. Not worth.
 
 ## Binary encoding format:
 
@@ -154,10 +156,10 @@ All integers are stored little-endian.
   - u8 patch
 - u8 number of targets (20). For each:
   - null-terminated target triple
-- u16 number of function inclusions (4300)
+- u16 number of function inclusions (18765)
   - null-terminated symbol name (not repeated for same-symbol inclusions)
   - Set of Unsized Inclusions
-- u16 number of object inclusion sets (105)
+- u16 number of object inclusion sets (2165)
   - null-terminated symbol name (not repeated for same-symbol inclusions)
   - Set of Sized Inclusions
 
