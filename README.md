@@ -144,6 +144,15 @@ We exploit this by encoding functions and object symbols in separate lists.
 Total object inclusions are 765. If we stored 4 and 8 byte objects in separate
 lists, this would save 2 bytes from 520 inclusions, totaling 1 KB. Not worth.
 
+### Observation: Average number of different versions per inclusion is 1.02
+
+Nearly every inclusion has typically 1 version attached to it, rarely more.
+This makes a u64 bitset uneconomical. With 19530 total inclusions, this comes
+out to 153 KB spent on the version bitset. However if we encoded it as one byte
+per version, using 1 bit of the byte to indicate the terminal item, this would
+bring the 153 KB down to 19 KB. That is almost a 50% reduction from the total
+size of the encoded abilists file. Definitely worth it.
+
 ## Binary encoding format:
 
 All integers are stored little-endian.
@@ -157,21 +166,21 @@ All integers are stored little-endian.
 - u8 number of targets (20). For each:
   - null-terminated target triple
 - u16 number of function inclusions (18765)
-  - null-terminated symbol name (not repeated for same-symbol inclusions)
+  - null-terminated symbol name (not repeated for subsequent same symbol inclusions)
   - Set of Unsized Inclusions
 - u16 number of object inclusion sets (2165)
-  - null-terminated symbol name (not repeated for same-symbol inclusions)
+  - null-terminated symbol name (not repeated for subsequent same symbol inclusions)
   - Set of Sized Inclusions
 
 Set of Unsized Inclusions:
-  - u64 set of glibc versions this inclusion applies to (1 << INDEX_IN_GLIBC_VERSION_LIST)
   - u32 set of targets this inclusion applies to (1 << INDEX_IN_TARGET_LIST)
     - last inclusion is indicated if 1 << 31 bit is set in target bitset
   - u8 index of glibc library this inclusion applies to
+  - [N]u8 set of glibc versions this inclusion applies to. MSB set indicates last.
 
 Set of Sized Inclusions:
-  - u64 set of glibc versions this inclusion applies to (1 << INDEX_IN_GLIBC_VERSION_LIST)
   - u32 set of targets this inclusion applies to (1 << INDEX_IN_TARGET_LIST)
     - last inclusion is indicated if 1 << 31 bit is set in target bitset
   - u16 object size
   - u8 index of glibc library this inclusion applies to
+  - [N]u8 set of glibc versions this inclusion applies to. MSB set indicates last.

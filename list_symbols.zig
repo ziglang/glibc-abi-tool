@@ -82,21 +82,30 @@ pub fn main() !void {
                 break :n name;
             };
             try w.print(" {s}:\n", .{symbol_name});
-            const versions = try r.readIntLittle(u64);
             const targets = try r.readIntLittle(u32);
             const lib_index = try r.readByte();
             const is_terminal = (targets & (1 << 31)) != 0;
             if (is_terminal) opt_symbol_name = null;
 
+            var ver_buf: [50]u8 = undefined;
+            var ver_buf_index: usize = 0;
+            while (true) {
+                const byte = try r.readByte();
+                const last = (byte & 0b1000_0000) != 0;
+                ver_buf[ver_buf_index] = @truncate(u7, byte);
+                ver_buf_index += 1;
+                if (last) break;
+            }
+            const versions = ver_buf[0..ver_buf_index];
+
             try w.print("  library: lib{s}.so\n", .{all_libs[lib_index]});
             try w.writeAll("  versions:");
-            for (all_versions) |ver, ver_i| {
-                if ((versions & (@as(u64, 1) << @intCast(u6, ver_i))) != 0) {
-                    if (ver.patch == 0) {
-                        try w.print(" {d}.{d}", .{ ver.major, ver.minor });
-                    } else {
-                        try w.print(" {d}.{d}.{d}", .{ ver.major, ver.minor, ver.patch });
-                    }
+            for (versions) |ver_index| {
+                const ver = all_versions[ver_index];
+                if (ver.patch == 0) {
+                    try w.print(" {d}.{d}", .{ ver.major, ver.minor });
+                } else {
+                    try w.print(" {d}.{d}.{d}", .{ ver.major, ver.minor, ver.patch });
                 }
             }
             try w.writeAll("\n");
@@ -123,23 +132,32 @@ pub fn main() !void {
                 break :n name;
             };
             try w.print(" {s}:\n", .{symbol_name});
-            const versions = try r.readIntLittle(u64);
             const targets = try r.readIntLittle(u32);
             const size = try r.readIntLittle(u16);
             const lib_index = try r.readByte();
             const is_terminal = (targets & (1 << 31)) != 0;
             if (is_terminal) opt_symbol_name = null;
 
+            var ver_buf: [50]u8 = undefined;
+            var ver_buf_index: usize = 0;
+            while (true) {
+                const byte = try r.readByte();
+                const last = (byte & 0b1000_0000) != 0;
+                ver_buf[ver_buf_index] = @truncate(u7, byte);
+                ver_buf_index += 1;
+                if (last) break;
+            }
+            const versions = ver_buf[0..ver_buf_index];
+
             try w.print("  size: {d}\n", .{size});
             try w.print("  library: lib{s}.so\n", .{all_libs[lib_index]});
             try w.writeAll("  versions:");
-            for (all_versions) |ver, ver_i| {
-                if ((versions & (@as(u64, 1) << @intCast(u6, ver_i))) != 0) {
-                    if (ver.patch == 0) {
-                        try w.print(" {d}.{d}", .{ ver.major, ver.minor });
-                    } else {
-                        try w.print(" {d}.{d}.{d}", .{ ver.major, ver.minor, ver.patch });
-                    }
+            for (versions) |ver_index| {
+                const ver = all_versions[ver_index];
+                if (ver.patch == 0) {
+                    try w.print(" {d}.{d}", .{ ver.major, ver.minor });
+                } else {
+                    try w.print(" {d}.{d}.{d}", .{ ver.major, ver.minor, ver.patch });
                 }
             }
             try w.writeAll("\n");

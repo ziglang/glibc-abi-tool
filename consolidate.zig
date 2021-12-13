@@ -818,9 +818,19 @@ pub fn main() !void {
                 if (set_terminal_bit) {
                     target_bitset |= 1 << 31;
                 }
-                try w.writeIntLittle(u64, inc.versions);
                 try w.writeIntLittle(u32, target_bitset);
                 try w.writeByte(inc.lib);
+
+                var buf: [versions.len]u8 = undefined;
+                var buf_index: usize = 0;
+                for (versions) |_, ver_i| {
+                    if ((inc.versions & (@as(u64, 1) << @intCast(u6, ver_i))) != 0) {
+                        buf[buf_index] = @intCast(u8, ver_i);
+                        buf_index += 1;
+                    }
+                }
+                buf[buf_index - 1] |= 0b1000_0000;
+                try w.writeAll(buf[0..buf_index]);
 
                 if (set_terminal_bit) break;
             }
@@ -844,10 +854,21 @@ pub fn main() !void {
                 if (set_terminal_bit) {
                     target_bitset |= 1 << 31;
                 }
-                try w.writeIntLittle(u64, inc.versions);
                 try w.writeIntLittle(u32, target_bitset);
                 try w.writeIntLittle(u16, inc.size);
                 try w.writeByte(inc.lib);
+
+                var buf: [versions.len]u8 = undefined;
+                var buf_index: usize = 0;
+                for (versions) |_, ver_i| {
+                    if ((inc.versions & (@as(u64, 1) << @intCast(u6, ver_i))) != 0) {
+                        buf[buf_index] = @intCast(u8, ver_i);
+                        buf_index += 1;
+                    }
+                }
+                buf[buf_index - 1] |= 0b1000_0000;
+                try w.writeAll(buf[0..buf_index]);
+
                 if (set_terminal_bit) break;
             }
         }
