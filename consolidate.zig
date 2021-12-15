@@ -54,6 +54,7 @@ const zig_targets = [_]ZigTarget{
     .{ .arch = .mipsel     , .abi = .gnueabi },
     .{ .arch = .mips       , .abi = .gnueabi },
     .{ .arch = .i386       , .abi = .gnu },
+    .{ .arch = .riscv32    , .abi = .gnu },
     .{ .arch = .sparc      , .abi = .gnu },
     .{ .arch = .sparcel    , .abi = .gnu },
     .{ .arch = .powerpc    , .abi = .gnueabi },
@@ -69,6 +70,7 @@ const zig_targets = [_]ZigTarget{
     .{ .arch = .aarch64_be , .abi = .gnu },
     .{ .arch = .x86_64     , .abi = .gnu },
     .{ .arch = .x86_64     , .abi = .gnux32 },
+    .{ .arch = .riscv64    , .abi = .gnu },
     .{ .arch = .sparcv9    , .abi = .gnu },
 
     .{ .arch = .s390x      , .abi = .gnu },
@@ -214,9 +216,22 @@ const abi_lists = [_]AbiList{
         },
         .path = "powerpc/powerpc32",
     },
+    AbiList{
+        .targets = &[_]ZigTarget{
+            ZigTarget{ .arch = .riscv32, .abi = .gnu },
+        },
+        .path = "riscv/rv32",
+    },
+    AbiList{
+        .targets = &[_]ZigTarget{
+            ZigTarget{ .arch = .riscv64, .abi = .gnu },
+        },
+        .path = "riscv/rv64",
+    },
 };
 
 /// After glibc 2.33, mips64 put some files inside n64 and n32 directories.
+/// This is also the first version that has riscv32 support.
 const ver33 = std.builtin.Version{
     .major = 2,
     .minor = 33,
@@ -233,6 +248,12 @@ const ver30 = std.builtin.Version{
 const ver28 = std.builtin.Version{
     .major = 2,
     .minor = 28,
+};
+
+/// This is the first version that has riscv64 support.
+const ver27 = std.builtin.Version{
+    .major = 2,
+    .minor = 27,
 };
 
 /// Before this version the abilist files had a different structure.
@@ -340,6 +361,13 @@ pub fn main() !void {
             fs_ver.major, fs_ver.minor, 
         });
         for (abi_lists) |*abi_list| {
+            if (abi_list.targets[0].arch == .riscv64 and fs_ver.order(ver27) == .lt) {
+                continue;
+            }
+            if (abi_list.targets[0].arch == .riscv32 and fs_ver.order(ver33) == .lt) {
+                continue;
+            }
+
             for (lib_names) |lib_name, lib_i| {
                 const lib_prefix = if (std.mem.eql(u8, lib_name, "ld")) "" else "lib";
                 const basename = try fmt.allocPrint(arena, "{s}{s}.abilist", .{ lib_prefix, lib_name });

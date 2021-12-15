@@ -1,7 +1,7 @@
 # glibc ABI Tool
 
 This repository contains `.abilist` files from every version of glibc. These
-files are consolidated to generate a single 166 KB symbol mapping file that is
+files are consolidated to generate a single 201 KB symbol mapping file that is
 shipped with Zig to target any version of glibc. This repository is for Zig
 maintainers to use when a new glibc version is tagged upstream; Zig users have
 no need for this repository.
@@ -163,12 +163,12 @@ All integers are stored little-endian.
   - u8 major
   - u8 minor
   - u8 patch
-- u8 number of targets (20). For each:
+- u8 number of targets (27). For each:
   - null-terminated target triple
-- u16 number of function inclusions (18765)
+- u16 number of function inclusions (24536)
   - null-terminated symbol name (not repeated for subsequent same symbol inclusions)
   - Set of Unsized Inclusions
-- u16 number of object inclusion sets (2165)
+- u16 number of object inclusions (912)
   - null-terminated symbol name (not repeated for subsequent same symbol inclusions)
   - Set of Sized Inclusions
 
