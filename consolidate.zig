@@ -71,7 +71,7 @@ const zig_targets = [_]ZigTarget{
     .{ .arch = .x86_64     , .abi = .gnu },
     .{ .arch = .x86_64     , .abi = .gnux32 },
     .{ .arch = .riscv64    , .abi = .gnu },
-    .{ .arch = .sparcv9    , .abi = .gnu },
+    .{ .arch = .sparc64    , .abi = .gnu },
 
     .{ .arch = .s390x      , .abi = .gnu },
     // zig fmt: on
@@ -125,6 +125,7 @@ const versions = [_]Version{
     .{.major = 2, .minor = 32},
     .{.major = 2, .minor = 33},
     .{.major = 2, .minor = 34},
+    .{.major = 2, .minor = 35},
 };
 
 // fpu/nofpu are hardcoded elsewhere, based on .gnueabi/.gnueabihf with an exception for .arm
@@ -158,7 +159,7 @@ const abi_lists = [_]AbiList{
         .path = "sparc/sparc32",
     },
     AbiList{
-        .targets = &[_]ZigTarget{ZigTarget{ .arch = .sparcv9, .abi = .gnu }},
+        .targets = &[_]ZigTarget{ZigTarget{ .arch = .sparc64, .abi = .gnu }},
         .path = "sparc/sparc64",
     },
     AbiList{
