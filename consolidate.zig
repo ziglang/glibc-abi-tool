@@ -39,6 +39,7 @@ const lib_names = [_][]const u8{
     "rt",
     "ld",
     "util",
+    "resolv",
 };
 
 /// This is organized by grouping together at the beginning,
@@ -71,7 +72,7 @@ const zig_targets = [_]ZigTarget{
     .{ .arch = .x86_64     , .abi = .gnu },
     .{ .arch = .x86_64     , .abi = .gnux32 },
     .{ .arch = .riscv64    , .abi = .gnu },
-    .{ .arch = .sparcv9    , .abi = .gnu },
+    .{ .arch = .sparc64    , .abi = .gnu },
 
     .{ .arch = .s390x      , .abi = .gnu },
     // zig fmt: on
@@ -158,7 +159,7 @@ const abi_lists = [_]AbiList{
         .path = "sparc/sparc32",
     },
     AbiList{
-        .targets = &[_]ZigTarget{ZigTarget{ .arch = .sparcv9, .abi = .gnu }},
+        .targets = &[_]ZigTarget{ZigTarget{ .arch = .sparc64, .abi = .gnu }},
         .path = "sparc/sparc64",
     },
     AbiList{
@@ -326,7 +327,7 @@ pub fn main() !void {
 
     //const args = try std.process.argsAlloc(arena);
 
-    var version_dir = try fs.cwd().openDir("glibc", .{ .iterate = true });
+    var version_dir = try fs.cwd().openIterableDir("glibc", .{});
     defer version_dir.close();
 
     const fs_versions = v: {
@@ -376,6 +377,8 @@ pub fn main() !void {
                     const is_m = std.mem.eql(u8, lib_name, "m");
                     const is_ld = std.mem.eql(u8, lib_name, "ld");
                     const is_rt = std.mem.eql(u8, lib_name, "rt");
+                    const is_resolv = std.mem.eql(u8, lib_name, "resolv");
+
                     if ((abi_list.targets[0].arch == .mips64 or
                         abi_list.targets[0].arch == .mips64el) and
                         fs_ver.order(ver33) == .gt and (is_rt or is_c or is_ld))
@@ -391,11 +394,11 @@ pub fn main() !void {
                         } else {
                             unreachable;
                         }
-                    } else if (abi_list.targets[0].abi == .gnuabi64 and (is_c or is_ld)) {
+                    } else if (abi_list.targets[0].abi == .gnuabi64 and (is_c or is_ld or is_resolv)) {
                         break :blk try fs.path.join(arena, &.{
                             prefix, abi_list.path, "n64", basename,
                         });
-                    } else if (abi_list.targets[0].abi == .gnuabin32 and (is_c or is_ld)) {
+                    } else if (abi_list.targets[0].abi == .gnuabin32 and (is_c or is_ld or is_resolv)) {
                         break :blk try fs.path.join(arena, &.{
                             prefix, abi_list.path, "n32", basename,
                         });
@@ -450,7 +453,7 @@ pub fn main() !void {
                 };
 
                 const max_bytes = 10 * 1024 * 1024;
-                const contents = version_dir.readFileAlloc(arena, abi_list_filename, max_bytes) catch |err| {
+                const contents = version_dir.dir.readFileAlloc(arena, abi_list_filename, max_bytes) catch |err| {
                     fatal("unable to open glibc/{s}: {}", .{ abi_list_filename, err });
                 };
                 var lines_it = std.mem.tokenize(u8, contents, "\n");
