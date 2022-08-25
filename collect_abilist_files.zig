@@ -26,7 +26,7 @@ pub fn main() !void {
     var dest_dir = try std.fs.cwd().makeOpenPath(dest_dir_path, .{});
     defer dest_dir.close();
 
-    var glibc_src_dir = try std.fs.cwd().openDir(search_dir_path, .{ .iterate = true });
+    var glibc_src_dir = try std.fs.cwd().openIterableDir(search_dir_path, .{});
     defer glibc_src_dir.close();
 
     var walker = try glibc_src_dir.walk(arena);
@@ -39,7 +39,7 @@ pub fn main() !void {
         if (fs.path.dirname(entry.path)) |dirname| {
             try dest_dir.makePath(dirname);
         }
-        try glibc_src_dir.copyFile(entry.path, dest_dir, entry.path, .{});
+        try glibc_src_dir.dir.copyFile(entry.path, dest_dir, entry.path, .{});
     }
 }
 
