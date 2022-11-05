@@ -54,7 +54,7 @@ const zig_targets = [_]ZigTarget{
     .{ .arch = .mips       , .abi = .gnueabihf },
     .{ .arch = .mipsel     , .abi = .gnueabi },
     .{ .arch = .mips       , .abi = .gnueabi },
-    .{ .arch = .i386       , .abi = .gnu },
+    .{ .arch = .x86        , .abi = .gnu },
     .{ .arch = .riscv32    , .abi = .gnu },
     .{ .arch = .sparc      , .abi = .gnu },
     .{ .arch = .sparcel    , .abi = .gnu },
@@ -199,7 +199,7 @@ const abi_lists = [_]AbiList{
         .path = "x86_64/x32",
     },
     AbiList{
-        .targets = &[_]ZigTarget{ZigTarget{ .arch = .i386, .abi = .gnu }},
+        .targets = &[_]ZigTarget{ZigTarget{ .arch = .x86, .abi = .gnu }},
         .path = "i386",
     },
     AbiList{
@@ -594,9 +594,9 @@ pub fn main() !void {
                 }
 
                 // Put one target and one version into the inclusion.
-                const first_targ_index = @ctz(u32, wanted_targets);
+                const first_targ_index = @ctz(wanted_targets);
                 var wanted_versions = wanted_versions_multi[first_targ_index];
-                const first_ver_index = @ctz(u64, wanted_versions);
+                const first_ver_index = @ctz(wanted_versions);
                 var inc: Inclusion = .{
                     .versions = @as(u64, 1) << @intCast(u6, first_ver_index),
                     .targets = @as(u32, 1) << @intCast(u5, first_targ_index),
@@ -610,7 +610,7 @@ pub fn main() !void {
                 // Expand the inclusion one at a time to include as many
                 // of the rest of the versions as possible.
                 while (wanted_versions != 0) {
-                    const test_ver_index = @ctz(u64, wanted_versions);
+                    const test_ver_index = @ctz(wanted_versions);
                     const new_inc = .{
                         .versions = inc.versions | (@as(u64, 1) << @intCast(u6, test_ver_index)),
                         .targets = inc.targets,
@@ -626,7 +626,7 @@ pub fn main() !void {
                 // Expand the inclusion one at a time to include as many
                 // of the rest of the targets as possible.
                 while (wanted_targets != 0) {
-                    const test_targ_index = @ctz(u64, wanted_targets);
+                    const test_targ_index = @ctz(wanted_targets);
                     const new_inc = .{
                         .versions = inc.versions,
                         .targets = inc.targets | (@as(u32, 1) << @intCast(u5,test_targ_index)),
@@ -639,7 +639,7 @@ pub fn main() !void {
                     wanted_targets &= ~(@as(u32, 1) << @intCast(u5, test_targ_index));
                 }
 
-                fn_version_popcount += @popCount(u64, inc.versions);
+                fn_version_popcount += @popCount(inc.versions);
 
                 try fn_inclusions.append(.{
                     .name = entry.key_ptr.*, 
@@ -726,10 +726,10 @@ pub fn main() !void {
                 }
 
                 // Put one target and one version into the inclusion.
-                const first_targ_index = @ctz(u32, wanted_targets);
+                const first_targ_index = @ctz(wanted_targets);
                 var wanted_versions = wanted_versions_multi[first_targ_index];
                 const wanted_size = wanted_sizes_multi[first_targ_index];
-                const first_ver_index = @ctz(u64, wanted_versions);
+                const first_ver_index = @ctz(wanted_versions);
                 var inc: Inclusion = .{
                     .versions = @as(u64, 1) << @intCast(u6, first_ver_index),
                     .targets = @as(u32, 1) << @intCast(u5, first_targ_index),
@@ -743,7 +743,7 @@ pub fn main() !void {
                 // Expand the inclusion one at a time to include as many
                 // of the rest of the versions as possible.
                 while (wanted_versions != 0) {
-                    const test_ver_index = @ctz(u64, wanted_versions);
+                    const test_ver_index = @ctz(wanted_versions);
                     const new_inc = .{
                         .versions = inc.versions | (@as(u64, 1) << @intCast(u6, test_ver_index)),
                         .targets = inc.targets,
@@ -759,7 +759,7 @@ pub fn main() !void {
                 // Expand the inclusion one at a time to include as many
                 // of the rest of the targets as possible.
                 while (wanted_targets != 0) {
-                    const test_targ_index = @ctz(u64, wanted_targets);
+                    const test_targ_index = @ctz(wanted_targets);
                     if (wanted_sizes_multi[test_targ_index] == wanted_size) {
                         const new_inc = .{
                             .versions = inc.versions,
@@ -774,7 +774,7 @@ pub fn main() !void {
                     wanted_targets &= ~(@as(u32, 1) << @intCast(u5, test_targ_index));
                 }
 
-                obj_version_popcount += @popCount(u64, inc.versions);
+                obj_version_popcount += @popCount(inc.versions);
 
                 try obj_inclusions.append(.{
                     .name = entry.key_ptr.*, 
