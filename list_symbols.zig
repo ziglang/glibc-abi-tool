@@ -111,7 +111,7 @@ pub fn main() !void {
             try w.writeAll("\n");
 
             try w.writeAll("  targets:");
-            for (all_targets) |target, target_i| {
+            for (all_targets, 0..) |target, target_i| {
                 if ((targets & (@as(u32, 1) << @intCast(u5, target_i))) != 0) {
                     try w.print(" {s}", .{target});
                 }
@@ -163,7 +163,7 @@ pub fn main() !void {
             try w.writeAll("\n");
 
             try w.writeAll("  targets:");
-            for (all_targets) |target, target_i| {
+            for (all_targets, 0..) |target, target_i| {
                 if ((targets & (@as(u32, 1) << @intCast(u5, target_i))) != 0) {
                     try w.print(" {s}", .{target});
                 }

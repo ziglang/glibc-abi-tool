@@ -18,7 +18,7 @@ const ZigTarget = struct {
     abi: std.Target.Abi,
 
     fn getIndex(zt: ZigTarget) u16 {
-        for (zig_targets) |other, i| {
+        for (zig_targets, 0..) |other, i| {
             if (zt.eql(other)) {
                 return @intCast(u16, i);
             }
@@ -291,8 +291,8 @@ const Symbol = struct {
 
     /// Return true if and only if the inclusion has no false positives.
     fn testInclusion(symbol: Symbol, inc: Inclusion, lib_i: u8) bool {
-        for (symbol.type[lib_i]) |versions_row, targets_i| {
-            for (versions_row) |ty, versions_i| {
+        for (symbol.type[lib_i], 0..) |versions_row, targets_i| {
+            for (versions_row, 0..) |ty, versions_i| {
                 switch (ty) {
                     .absent => {
                         if ((inc.targets & (@as(u32, 1) << @intCast(u5, targets_i)) ) != 0 and
@@ -361,7 +361,7 @@ pub fn main() !void {
         const prefix = try fmt.allocPrint(arena, "{d}.{d}/sysdeps/unix/sysv/linux", .{
             fs_ver.major, fs_ver.minor, 
         });
-        for (abi_lists) |*abi_list| {
+        for (&abi_lists) |*abi_list| {
             if (abi_list.targets[0].arch == .riscv64 and fs_ver.order(ver27) == .lt) {
                 continue;
             }
@@ -369,7 +369,7 @@ pub fn main() !void {
                 continue;
             }
 
-            for (lib_names) |lib_name, lib_i| {
+            for (lib_names, 0..) |lib_name, lib_i| {
                 const lib_prefix = if (std.mem.eql(u8, lib_name, "ld")) "" else "lib";
                 const basename = try fmt.allocPrint(arena, "{s}{s}.abilist", .{ lib_prefix, lib_name });
                 const abi_list_filename = blk: {
@@ -572,8 +572,8 @@ pub fn main() !void {
                 var wanted_targets: u32 = 0;
                 var wanted_versions_multi = [1]u64{0} ** zig_targets.len;
 
-                for (targets_row) |versions_row, targets_i| {
-                    for (versions_row) |ty, versions_i| {
+                for (targets_row, 0..) |versions_row, targets_i| {
+                    for (versions_row, 0..) |ty, versions_i| {
                         if (handled[lib_i][targets_i][versions_i]) continue;
 
                         switch (ty) {
@@ -647,8 +647,8 @@ pub fn main() !void {
                 });
 
                 // Mark stuff as handled by this inclusion.
-                for (targets_row) |versions_row, targets_i| {
-                    for (versions_row) |_, versions_i| {
+                for (targets_row, 0..) |versions_row, targets_i| {
+                    for (versions_row, 0..) |_, versions_i| {
                         if (handled[lib_i][targets_i][versions_i]) continue;
                         if ((inc.targets & (@as(u32, 1) << @intCast(u5, targets_i)) ) != 0 and
                             (inc.versions & (@as(u64, 1) << @intCast(u6, versions_i)) ) != 0)
@@ -694,8 +694,8 @@ pub fn main() !void {
                 var wanted_versions_multi = [1]u64{0} ** zig_targets.len;
                 var wanted_sizes_multi = [1]u16{0} ** zig_targets.len;
 
-                for (targets_row) |versions_row, targets_i| {
-                    for (versions_row) |ty, versions_i| {
+                for (targets_row, 0..) |versions_row, targets_i| {
+                    for (versions_row, 0..) |ty, versions_i| {
                         if (handled[lib_i][targets_i][versions_i]) continue;
 
                         switch (ty) {
@@ -782,8 +782,8 @@ pub fn main() !void {
                 });
 
                 // Mark stuff as handled by this inclusion.
-                for (targets_row) |versions_row, targets_i| {
-                    for (versions_row) |_, versions_i| {
+                for (targets_row, 0..) |versions_row, targets_i| {
+                    for (versions_row, 0..) |_, versions_i| {
                         if (handled[lib_i][targets_i][versions_i]) continue;
                         if ((inc.targets & (@as(u32, 1) << @intCast(u5, targets_i)) ) != 0 and
                             (inc.versions & (@as(u64, 1) << @intCast(u6, versions_i)) ) != 0)
@@ -854,7 +854,7 @@ pub fn main() !void {
 
                 var buf: [versions.len]u8 = undefined;
                 var buf_index: usize = 0;
-                for (versions) |_, ver_i| {
+                for (versions, 0..) |_, ver_i| {
                     if ((inc.versions & (@as(u64, 1) << @intCast(u6, ver_i))) != 0) {
                         buf[buf_index] = @intCast(u8, ver_i);
                         buf_index += 1;
@@ -891,7 +891,7 @@ pub fn main() !void {
 
                 var buf: [versions.len]u8 = undefined;
                 var buf_index: usize = 0;
-                for (versions) |_, ver_i| {
+                for (versions, 0..) |_, ver_i| {
                     if ((inc.versions & (@as(u64, 1) << @intCast(u6, ver_i))) != 0) {
                         buf[buf_index] = @intCast(u8, ver_i);
                         buf_index += 1;
@@ -920,7 +920,7 @@ fn fatal(comptime format: []const u8, args: anytype) noreturn {
 }
 
 fn verIndex(ver: Version) u6 {
-    for (versions) |v, i| {
+    for (versions, 0..) |v, i| {
         if (v.order(ver) == .eq) {
             return @intCast(u6, i);
         }
