@@ -126,6 +126,9 @@ const versions = [_]Version{
     .{.major = 2, .minor = 32},
     .{.major = 2, .minor = 33},
     .{.major = 2, .minor = 34},
+    .{.major = 2, .minor = 35},
+    .{.major = 2, .minor = 36},
+    .{.major = 2, .minor = 37},
 };
 
 // fpu/nofpu are hardcoded elsewhere, based on .gnueabi/.gnueabihf with an exception for .arm
