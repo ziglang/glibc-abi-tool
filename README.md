@@ -14,7 +14,7 @@ no need for this repository.
 git clone git://sourceware.org/git/glibc.git
 ```
 
-2. Check out the new glibc version git tag, e.g. `glibc-2.34`.
+2. Check out the new glibc version git tag, e.g. `glibc-2.38`.
 
 3. Run the tool to grab the new abilist files:
 
