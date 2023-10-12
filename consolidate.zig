@@ -1,6 +1,6 @@
 const std = @import("std");
 const Target = std.Target;
-const Version = std.builtin.Version;
+const Version = @import("Version.zig");
 const mem = std.mem;
 const log = std.log;
 const fs = std.fs;
@@ -18,9 +18,9 @@ const ZigTarget = struct {
     abi: std.Target.Abi,
 
     fn getIndex(zt: ZigTarget) u16 {
-        for (zig_targets) |other, i| {
+        for (zig_targets, 0..) |other, i| {
             if (zt.eql(other)) {
-                return @intCast(u16, i);
+                return @intCast(i);
             }
         }
         unreachable;
@@ -126,6 +126,10 @@ const versions = [_]Version{
     .{.major = 2, .minor = 32},
     .{.major = 2, .minor = 33},
     .{.major = 2, .minor = 34},
+    .{.major = 2, .minor = 35},
+    .{.major = 2, .minor = 36},
+    .{.major = 2, .minor = 37},
+    .{.major = 2, .minor = 38},
 };
 
 // fpu/nofpu are hardcoded elsewhere, based on .gnueabi/.gnueabihf with an exception for .arm
@@ -233,32 +237,32 @@ const abi_lists = [_]AbiList{
 
 /// After glibc 2.33, mips64 put some files inside n64 and n32 directories.
 /// This is also the first version that has riscv32 support.
-const ver33 = std.builtin.Version{
+const ver33 = Version{
     .major = 2,
     .minor = 33,
 };
 
 /// glibc 2.31 added sysdeps/unix/sysv/linux/arm/le and sysdeps/unix/sysv/linux/arm/be
 /// Before these directories did not exist.
-const ver30 = std.builtin.Version{
+const ver30 = Version{
     .major = 2,
     .minor = 30,
 };
 
 /// Similarly, powerpc64 le and be were introduced in glibc 2.29
-const ver28 = std.builtin.Version{
+const ver28 = Version{
     .major = 2,
     .minor = 28,
 };
 
 /// This is the first version that has riscv64 support.
-const ver27 = std.builtin.Version{
+const ver27 = Version{
     .major = 2,
     .minor = 27,
 };
 
 /// Before this version the abilist files had a different structure.
-const ver23 = std.builtin.Version{
+const ver23 = Version{
     .major = 2,
     .minor = 23,
 };
@@ -291,12 +295,12 @@ const Symbol = struct {
 
     /// Return true if and only if the inclusion has no false positives.
     fn testInclusion(symbol: Symbol, inc: Inclusion, lib_i: u8) bool {
-        for (symbol.type[lib_i]) |versions_row, targets_i| {
-            for (versions_row) |ty, versions_i| {
+        for (symbol.type[lib_i], 0..) |versions_row, targets_i| {
+            for (versions_row, 0..) |ty, versions_i| {
                 switch (ty) {
                     .absent => {
-                        if ((inc.targets & (@as(u32, 1) << @intCast(u5, targets_i)) ) != 0 and
-                            (inc.versions & (@as(u64, 1) << @intCast(u6, versions_i)) ) != 0)
+                        if ((inc.targets & (@as(u32, 1) << @intCast(targets_i)) ) != 0 and
+                            (inc.versions & (@as(u64, 1) << @intCast(versions_i)) ) != 0)
                         {
                             return false;
                         }
@@ -341,12 +345,12 @@ pub fn main() !void {
 
         break :v fs_versions.items;
     };
-    std.sort.sort(Version, fs_versions, {}, versionAscending);
+    std.mem.sort(Version, fs_versions, {}, versionAscending);
 
     var symbols = std.StringHashMap(Symbol).init(arena);
 
     // Before this version the abilist files had a different structure.
-    const first_fs_ver = std.builtin.Version{
+    const first_fs_ver = Version{
         .major = 2,
         .minor = 23,
     };
@@ -361,7 +365,7 @@ pub fn main() !void {
         const prefix = try fmt.allocPrint(arena, "{d}.{d}/sysdeps/unix/sysv/linux", .{
             fs_ver.major, fs_ver.minor, 
         });
-        for (abi_lists) |*abi_list| {
+        for (&abi_lists) |*abi_list| {
             if (abi_list.targets[0].arch == .riscv64 and fs_ver.order(ver27) == .lt) {
                 continue;
             }
@@ -369,7 +373,7 @@ pub fn main() !void {
                 continue;
             }
 
-            for (lib_names) |lib_name, lib_i| {
+            for (lib_names, 0..) |lib_name, lib_i| {
                 const lib_prefix = if (std.mem.eql(u8, lib_name, "ld")) "" else "lib";
                 const basename = try fmt.allocPrint(arena, "{s}{s}.abilist", .{ lib_prefix, lib_name });
                 const abi_list_filename = blk: {
@@ -572,16 +576,16 @@ pub fn main() !void {
                 var wanted_targets: u32 = 0;
                 var wanted_versions_multi = [1]u64{0} ** zig_targets.len;
 
-                for (targets_row) |versions_row, targets_i| {
-                    for (versions_row) |ty, versions_i| {
+                for (targets_row, 0..) |versions_row, targets_i| {
+                    for (versions_row, 0..) |ty, versions_i| {
                         if (handled[lib_i][targets_i][versions_i]) continue;
 
                         switch (ty) {
                             .absent => continue,
                             .function => {
-                                wanted_targets |= @as(u32, 1) << @intCast(u5, targets_i);
+                                wanted_targets |= @as(u32, 1) << @intCast(targets_i);
                                 wanted_versions_multi[targets_i] |=
-                                    @as(u64, 1) << @intCast(u6, versions_i);
+                                    @as(u64, 1) << @intCast(versions_i);
                             },
                             .object => unreachable,
                         }
@@ -598,13 +602,13 @@ pub fn main() !void {
                 var wanted_versions = wanted_versions_multi[first_targ_index];
                 const first_ver_index = @ctz(wanted_versions);
                 var inc: Inclusion = .{
-                    .versions = @as(u64, 1) << @intCast(u6, first_ver_index),
-                    .targets = @as(u32, 1) << @intCast(u5, first_targ_index),
-                    .lib = @intCast(u8, lib_i),
+                    .versions = @as(u64, 1) << @intCast(first_ver_index),
+                    .targets = @as(u32, 1) << @intCast(first_targ_index),
+                    .lib = @intCast(lib_i),
                     .size = 0,
                 };
-                wanted_targets &= ~(@as(u32, 1) << @intCast(u5, first_targ_index));
-                wanted_versions &= ~(@as(u64, 1) << @intCast(u6, first_ver_index));
+                wanted_targets &= ~(@as(u32, 1) << @intCast(first_targ_index));
+                wanted_versions &= ~(@as(u64, 1) << @intCast(first_ver_index));
                 assert(entry.value_ptr.testInclusion(inc, lib_i));
 
                 // Expand the inclusion one at a time to include as many
@@ -612,7 +616,7 @@ pub fn main() !void {
                 while (wanted_versions != 0) {
                     const test_ver_index = @ctz(wanted_versions);
                     const new_inc = .{
-                        .versions = inc.versions | (@as(u64, 1) << @intCast(u6, test_ver_index)),
+                        .versions = inc.versions | (@as(u64, 1) << @intCast(test_ver_index)),
                         .targets = inc.targets,
                         .lib = inc.lib,
                         .size = 0,
@@ -620,7 +624,7 @@ pub fn main() !void {
                     if (entry.value_ptr.testInclusion(new_inc, lib_i)) {
                         inc = new_inc;
                     }
-                    wanted_versions &= ~(@as(u64, 1) << @intCast(u6, test_ver_index));
+                    wanted_versions &= ~(@as(u64, 1) << @intCast(test_ver_index));
                 }
 
                 // Expand the inclusion one at a time to include as many
@@ -629,14 +633,14 @@ pub fn main() !void {
                     const test_targ_index = @ctz(wanted_targets);
                     const new_inc = .{
                         .versions = inc.versions,
-                        .targets = inc.targets | (@as(u32, 1) << @intCast(u5,test_targ_index)),
+                        .targets = inc.targets | (@as(u32, 1) << @intCast(test_targ_index)),
                         .lib = inc.lib,
                         .size = 0,
                     };
                     if (entry.value_ptr.testInclusion(new_inc, lib_i)) {
                         inc = new_inc;
                     }
-                    wanted_targets &= ~(@as(u32, 1) << @intCast(u5, test_targ_index));
+                    wanted_targets &= ~(@as(u32, 1) << @intCast(test_targ_index));
                 }
 
                 fn_version_popcount += @popCount(inc.versions);
@@ -647,11 +651,11 @@ pub fn main() !void {
                 });
 
                 // Mark stuff as handled by this inclusion.
-                for (targets_row) |versions_row, targets_i| {
-                    for (versions_row) |_, versions_i| {
+                for (targets_row, 0..) |versions_row, targets_i| {
+                    for (versions_row, 0..) |_, versions_i| {
                         if (handled[lib_i][targets_i][versions_i]) continue;
-                        if ((inc.targets & (@as(u32, 1) << @intCast(u5, targets_i)) ) != 0 and
-                            (inc.versions & (@as(u64, 1) << @intCast(u6, versions_i)) ) != 0)
+                        if ((inc.targets & (@as(u32, 1) << @intCast(targets_i)) ) != 0 and
+                            (inc.versions & (@as(u64, 1) << @intCast(versions_i)) ) != 0)
                         {
                             handled[lib_i][targets_i][versions_i] = true;
                         }
@@ -663,10 +667,10 @@ pub fn main() !void {
 
     log.info("total function inclusions: {d}", .{fn_inclusions.items.len});
     log.info("average inclusions per function: {d}", .{
-        @intToFloat(f64, fn_inclusions.items.len) / @intToFloat(f64, fn_count),
+        @as(f64, @floatFromInt(fn_inclusions.items.len)) / @as(f64, @floatFromInt(fn_count)),
     });
     log.info("average function versions bits set: {d}", .{
-        @intToFloat(f64, fn_version_popcount) / @intToFloat(f64, fn_inclusions.items.len),
+        @as(f64, @floatFromInt(fn_version_popcount)) / @as(f64, @floatFromInt(fn_inclusions.items.len)),
     });
 
     var obj_inclusions = std.ArrayList(NamedInclusion).init(arena);
@@ -694,14 +698,14 @@ pub fn main() !void {
                 var wanted_versions_multi = [1]u64{0} ** zig_targets.len;
                 var wanted_sizes_multi = [1]u16{0} ** zig_targets.len;
 
-                for (targets_row) |versions_row, targets_i| {
-                    for (versions_row) |ty, versions_i| {
+                for (targets_row, 0..) |versions_row, targets_i| {
+                    for (versions_row, 0..) |ty, versions_i| {
                         if (handled[lib_i][targets_i][versions_i]) continue;
 
                         switch (ty) {
                             .absent => continue,
                             .object => |size| {
-                                wanted_targets |= @as(u32, 1) << @intCast(u5, targets_i);
+                                wanted_targets |= @as(u32, 1) << @intCast(targets_i);
 
                                 var ok = false;
                                 if (wanted_sizes_multi[targets_i] == 0) {
@@ -712,7 +716,7 @@ pub fn main() !void {
                                 }
                                 if (ok) {
                                     wanted_versions_multi[targets_i] |=
-                                        @as(u64, 1) << @intCast(u6, versions_i);
+                                        @as(u64, 1) << @intCast(versions_i);
                                 }
                             },
                             .function => unreachable,
@@ -731,13 +735,13 @@ pub fn main() !void {
                 const wanted_size = wanted_sizes_multi[first_targ_index];
                 const first_ver_index = @ctz(wanted_versions);
                 var inc: Inclusion = .{
-                    .versions = @as(u64, 1) << @intCast(u6, first_ver_index),
-                    .targets = @as(u32, 1) << @intCast(u5, first_targ_index),
-                    .lib = @intCast(u8, lib_i),
+                    .versions = @as(u64, 1) << @intCast(first_ver_index),
+                    .targets = @as(u32, 1) << @intCast(first_targ_index),
+                    .lib = @intCast(lib_i),
                     .size = wanted_size,
                 };
-                wanted_targets &= ~(@as(u32, 1) << @intCast(u5, first_targ_index));
-                wanted_versions &= ~(@as(u64, 1) << @intCast(u6, first_ver_index));
+                wanted_targets &= ~(@as(u32, 1) << @intCast(first_targ_index));
+                wanted_versions &= ~(@as(u64, 1) << @intCast(first_ver_index));
                 assert(entry.value_ptr.testInclusion(inc, lib_i));
 
                 // Expand the inclusion one at a time to include as many
@@ -745,7 +749,7 @@ pub fn main() !void {
                 while (wanted_versions != 0) {
                     const test_ver_index = @ctz(wanted_versions);
                     const new_inc = .{
-                        .versions = inc.versions | (@as(u64, 1) << @intCast(u6, test_ver_index)),
+                        .versions = inc.versions | (@as(u64, 1) << @intCast(test_ver_index)),
                         .targets = inc.targets,
                         .lib = inc.lib,
                         .size = wanted_size,
@@ -753,7 +757,7 @@ pub fn main() !void {
                     if (entry.value_ptr.testInclusion(new_inc, lib_i)) {
                         inc = new_inc;
                     }
-                    wanted_versions &= ~(@as(u64, 1) << @intCast(u6, test_ver_index));
+                    wanted_versions &= ~(@as(u64, 1) << @intCast(test_ver_index));
                 }
 
                 // Expand the inclusion one at a time to include as many
@@ -763,7 +767,7 @@ pub fn main() !void {
                     if (wanted_sizes_multi[test_targ_index] == wanted_size) {
                         const new_inc = .{
                             .versions = inc.versions,
-                            .targets = inc.targets | (@as(u32, 1) << @intCast(u5,test_targ_index)),
+                            .targets = inc.targets | (@as(u32, 1) << @intCast(test_targ_index)),
                             .lib = inc.lib,
                             .size = wanted_size,
                         };
@@ -771,7 +775,7 @@ pub fn main() !void {
                             inc = new_inc;
                         }
                     }
-                    wanted_targets &= ~(@as(u32, 1) << @intCast(u5, test_targ_index));
+                    wanted_targets &= ~(@as(u32, 1) << @intCast(test_targ_index));
                 }
 
                 obj_version_popcount += @popCount(inc.versions);
@@ -782,11 +786,11 @@ pub fn main() !void {
                 });
 
                 // Mark stuff as handled by this inclusion.
-                for (targets_row) |versions_row, targets_i| {
-                    for (versions_row) |_, versions_i| {
+                for (targets_row, 0..) |versions_row, targets_i| {
+                    for (versions_row, 0..) |_, versions_i| {
                         if (handled[lib_i][targets_i][versions_i]) continue;
-                        if ((inc.targets & (@as(u32, 1) << @intCast(u5, targets_i)) ) != 0 and
-                            (inc.versions & (@as(u64, 1) << @intCast(u6, versions_i)) ) != 0)
+                        if ((inc.targets & (@as(u32, 1) << @intCast(targets_i)) ) != 0 and
+                            (inc.versions & (@as(u64, 1) << @intCast(versions_i)) ) != 0)
                         {
                             handled[lib_i][targets_i][versions_i] = true;
                         }
@@ -798,10 +802,10 @@ pub fn main() !void {
 
     log.info("total object inclusions: {d}", .{obj_inclusions.items.len});
     log.info("average inclusions per object: {d}", .{
-        @intToFloat(f32, obj_inclusions.items.len) / @intToFloat(f32, obj_count),
+        @as(f32, @floatFromInt(obj_inclusions.items.len)) / @as(f32, @floatFromInt(obj_count)),
     });
     log.info("average objects versions bits set: {d}", .{
-        @intToFloat(f64, obj_version_popcount) / @intToFloat(f64, obj_inclusions.items.len),
+        @as(f64, @floatFromInt(obj_version_popcount)) / @as(f64, @floatFromInt(obj_inclusions.items.len)),
     });
 
     // Serialize to the output file.
@@ -821,9 +825,9 @@ pub fn main() !void {
     // Versions
     try w.writeByte(versions.len);
     for (versions) |ver| {
-        try w.writeByte(@intCast(u8, ver.major));
-        try w.writeByte(@intCast(u8, ver.minor));
-        try w.writeByte(@intCast(u8, ver.patch));
+        try w.writeByte(@intCast(ver.major));
+        try w.writeByte(@intCast(ver.minor));
+        try w.writeByte(@intCast(ver.patch));
     }
 
     // Targets
@@ -834,7 +838,7 @@ pub fn main() !void {
 
     {
         // Function Inclusions
-        try w.writeIntLittle(u16, @intCast(u16, fn_inclusions.items.len));
+        try w.writeIntLittle(u16, @intCast(fn_inclusions.items.len));
         var i: usize = 0;
         while (i < fn_inclusions.items.len) {
             const name = fn_inclusions.items[i].name;
@@ -854,9 +858,9 @@ pub fn main() !void {
 
                 var buf: [versions.len]u8 = undefined;
                 var buf_index: usize = 0;
-                for (versions) |_, ver_i| {
-                    if ((inc.versions & (@as(u64, 1) << @intCast(u6, ver_i))) != 0) {
-                        buf[buf_index] = @intCast(u8, ver_i);
+                for (versions, 0..) |_, ver_i| {
+                    if ((inc.versions & (@as(u64, 1) << @intCast(ver_i))) != 0) {
+                        buf[buf_index] = @intCast(ver_i);
                         buf_index += 1;
                     }
                 }
@@ -870,7 +874,7 @@ pub fn main() !void {
 
     {
         // Object Inclusions
-        try w.writeIntLittle(u16, @intCast(u16, obj_inclusions.items.len));
+        try w.writeIntLittle(u16, @intCast(obj_inclusions.items.len));
         var i: usize = 0;
         while (i < obj_inclusions.items.len) {
             const name = obj_inclusions.items[i].name;
@@ -891,9 +895,9 @@ pub fn main() !void {
 
                 var buf: [versions.len]u8 = undefined;
                 var buf_index: usize = 0;
-                for (versions) |_, ver_i| {
-                    if ((inc.versions & (@as(u64, 1) << @intCast(u6, ver_i))) != 0) {
-                        buf[buf_index] = @intCast(u8, ver_i);
+                for (versions, 0..) |_, ver_i| {
+                    if ((inc.versions & (@as(u64, 1) << @intCast(ver_i))) != 0) {
+                        buf[buf_index] = @intCast(ver_i);
                         buf_index += 1;
                     }
                 }
@@ -920,9 +924,9 @@ fn fatal(comptime format: []const u8, args: anytype) noreturn {
 }
 
 fn verIndex(ver: Version) u6 {
-    for (versions) |v, i| {
+    for (versions, 0..) |v, i| {
         if (v.order(ver) == .eq) {
-            return @intCast(u6, i);
+            return @intCast(i);
         }
     }
     unreachable;

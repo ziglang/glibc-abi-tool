@@ -30,7 +30,9 @@ zig run collect_abilist_files.zig -- $GLIBC_GIT_REPO_PATH
 
 ## Updating Zig
 
-1. Run `consolidate.zig` at the root of this repo.
+1. Add the new glibc versions to the `versions` global constant.
+
+2. Run `consolidate.zig` at the root of this repo.
 
 ```sh
 zig run consolidate.zig
