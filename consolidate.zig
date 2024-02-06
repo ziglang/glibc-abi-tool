@@ -73,6 +73,7 @@ const zig_targets = [_]ZigTarget{
     .{ .arch = .x86_64     , .abi = .gnux32 },
     .{ .arch = .riscv64    , .abi = .gnu },
     .{ .arch = .sparc64    , .abi = .gnu },
+    .{ .arch = .loongarch64, .abi = .gnu },
 
     .{ .arch = .s390x      , .abi = .gnu },
     // zig fmt: on
@@ -233,6 +234,12 @@ const abi_lists = [_]AbiList{
         },
         .path = "riscv/rv64",
     },
+    AbiList{
+        .targets = &[_]ZigTarget{
+            ZigTarget{ .arch = .loongarch64, .abi = .gnu },
+        },
+        .path = "loongarch64",
+    },
 };
 
 /// After glibc 2.33, mips64 put some files inside n64 and n32 directories.
@@ -265,6 +272,12 @@ const ver27 = Version{
 const ver23 = Version{
     .major = 2,
     .minor = 23,
+};
+
+/// This is the first version that has loongarch64 support.
+const ver36 = Version{
+    .major = 2,
+    .minor = 36,
 };
 
 const Symbol = struct {
@@ -370,6 +383,9 @@ pub fn main() !void {
                 continue;
             }
             if (abi_list.targets[0].arch == .riscv32 and fs_ver.order(ver33) == .lt) {
+                continue;
+            }
+            if (abi_list.targets[0].arch == .loongarch64 and fs_ver.order(ver36) == .lt) {
                 continue;
             }
 
