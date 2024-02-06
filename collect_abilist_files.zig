@@ -52,7 +52,7 @@ fn fatal(comptime format: []const u8, args: anytype) noreturn {
 }
 
 fn exec(arena: mem.Allocator, argv: []const []const u8) ![]const u8 {
-    const child_result = try std.ChildProcess.exec(.{
+    const child_result = try std.ChildProcess.run(.{
         .allocator = arena,
         .argv = argv,
         .max_output_bytes = 200 * 1024 * 1024,
