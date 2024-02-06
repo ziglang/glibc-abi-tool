@@ -238,7 +238,7 @@ const abi_lists = [_]AbiList{
         .targets = &[_]ZigTarget{
             ZigTarget{ .arch = .loongarch64, .abi = .gnu },
         },
-        .path = "loongarch64",
+        .path = "loongarch/lp64",
     },
 };
 
