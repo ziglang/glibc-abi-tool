@@ -854,7 +854,8 @@ pub fn main() !void {
 
     {
         // Function Inclusions
-        try w.writeIntLittle(u16, @intCast(fn_inclusions.items.len));
+        var len: u16 = @intCast(fn_inclusions.items.len);
+        try w.writeIntLittle(u16, len);
         var i: usize = 0;
         while (i < fn_inclusions.items.len) {
             const name = fn_inclusions.items[i].name;
@@ -890,7 +891,8 @@ pub fn main() !void {
 
     {
         // Object Inclusions
-        try w.writeIntLittle(u16, @intCast(obj_inclusions.items.len));
+        var len: u16 = @intCast(obj_inclusions.items.len);
+        try w.writeIntLittle(u16, len);
         var i: usize = 0;
         while (i < obj_inclusions.items.len) {
             const name = obj_inclusions.items[i].name;
