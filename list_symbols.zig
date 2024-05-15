@@ -1,5 +1,5 @@
 const std = @import("std");
-const Version = std.builtin.Version;
+const Version = std.SemanticVersion;
 const mem = std.mem;
 const log = std.log;
 const fs = std.fs;
@@ -72,7 +72,7 @@ pub fn main() !void {
 
     {
         try w.writeAll("Functions:\n");
-        const fns_len = try r.readIntLittle(u16);
+        const fns_len = try r.readInt(u16, .little);
         var i: u16 = 0;
         var opt_symbol_name: ?[]const u8 = null;
         while (i < fns_len) : (i += 1) {
@@ -82,7 +82,7 @@ pub fn main() !void {
                 break :n name;
             };
             try w.print(" {s}:\n", .{symbol_name});
-            const targets = try r.readIntLittle(u32);
+            const targets = try r.readInt(u32, .little);
             const lib_index = try r.readByte();
             const is_terminal = (targets & (1 << 31)) != 0;
             if (is_terminal) opt_symbol_name = null;
@@ -92,7 +92,7 @@ pub fn main() !void {
             while (true) {
                 const byte = try r.readByte();
                 const last = (byte & 0b1000_0000) != 0;
-                ver_buf[ver_buf_index] = @truncate(u7, byte);
+                ver_buf[ver_buf_index] = @as(u7, @truncate(byte));
                 ver_buf_index += 1;
                 if (last) break;
             }
@@ -111,8 +111,8 @@ pub fn main() !void {
             try w.writeAll("\n");
 
             try w.writeAll("  targets:");
-            for (all_targets) |target, target_i| {
-                if ((targets & (@as(u32, 1) << @intCast(u5, target_i))) != 0) {
+            for (all_targets, 0..) |target, target_i| {
+                if ((targets & (@as(u32, 1) << @intCast(target_i))) != 0) {
                     try w.print(" {s}", .{target});
                 }
             }
@@ -122,7 +122,7 @@ pub fn main() !void {
 
     {
         try w.writeAll("Objects:\n");
-        const objects_len = try r.readIntLittle(u16);
+        const objects_len = try r.readInt(u16, .little);
         var i: u16 = 0;
         var opt_symbol_name: ?[]const u8 = null;
         while (i < objects_len) : (i += 1) {
@@ -132,8 +132,8 @@ pub fn main() !void {
                 break :n name;
             };
             try w.print(" {s}:\n", .{symbol_name});
-            const targets = try r.readIntLittle(u32);
-            const size = try r.readIntLittle(u16);
+            const targets = try r.readInt(u32, .little);
+            const size = try r.readInt(u16, .little);
             const lib_index = try r.readByte();
             const is_terminal = (targets & (1 << 31)) != 0;
             if (is_terminal) opt_symbol_name = null;
@@ -143,7 +143,7 @@ pub fn main() !void {
             while (true) {
                 const byte = try r.readByte();
                 const last = (byte & 0b1000_0000) != 0;
-                ver_buf[ver_buf_index] = @truncate(u7, byte);
+                ver_buf[ver_buf_index] = @as(u7, @truncate(byte));
                 ver_buf_index += 1;
                 if (last) break;
             }
@@ -163,8 +163,8 @@ pub fn main() !void {
             try w.writeAll("\n");
 
             try w.writeAll("  targets:");
-            for (all_targets) |target, target_i| {
-                if ((targets & (@as(u32, 1) << @intCast(u5, target_i))) != 0) {
+            for (all_targets, 0..) |target, target_i| {
+                if ((targets & (@as(u32, 1) << @intCast(target_i))) != 0) {
                     try w.print(" {s}", .{target});
                 }
             }
