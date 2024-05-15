@@ -1,0 +1,66 @@
+name: build
+
+on:
+  schedule:
+    # At 08:00 every Sunday
+    - cron: '0 8 * * 0'
+  push:
+    tags:
+      - "v*"
+    branches:
+      - '*'
+      - '!gh-pages'
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        zig_version: [master, minimal]
+    steps:
+      - uses: actions/checkout@v4
+      - name: install zigup
+        run: |
+          set -ex
+          mkdir zigup && cd zigup
+          wget https://github.com/marler8997/zigup/releases/download/v2024_05_05/zigup-x86_64-linux.tar.gz
+          tar -xzf zigup-x86_64-linux.tar.gz
+          echo "$(pwd)" >> $GITHUB_PATH
+      - name: install zig
+        run: |
+          set -x
+          version=${{ matrix.zig_version }}
+          if [[ $version = "minimal" ]]; then
+            version=$(cat .zig-version)
+          fi
+          zigup "$version"
+          path="$HOME/zig/$version"
+          echo "$path" >> $GITHUB_PATH
+
+      - run: zig build-exe list_symbols.zig
+      - run: zig build-exe collect_abilist_files.zig
+
+      - run: zig run consolidate.zig
+      - name: Upload artifact
+        if: matrix.zig_version == 'minimal'
+        uses: actions/upload-artifact@v4
+        with:
+          name: abilists
+          path: abilists
+          retention-days: 1
+
+  release:
+    needs: [build]
+    if: github.event_name != 'pull_request' && startsWith(github.event.ref, 'refs/tags')
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: abilists
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: abilists
