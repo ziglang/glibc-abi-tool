@@ -331,7 +331,7 @@ pub fn main() !void {
 
     //const args = try std.process.argsAlloc(arena);
 
-    var version_dir = try fs.cwd().openIterableDir("glibc", .{});
+    var version_dir = try fs.cwd().openDir("glibc", .{.iterate=true});
     defer version_dir.close();
 
     const fs_versions = v: {
@@ -457,7 +457,7 @@ pub fn main() !void {
                 };
 
                 const max_bytes = 10 * 1024 * 1024;
-                const contents = version_dir.dir.readFileAlloc(arena, abi_list_filename, max_bytes) catch |err| {
+                const contents = version_dir.readFileAlloc(arena, abi_list_filename, max_bytes) catch |err| {
                     fatal("unable to open glibc/{s}: {}", .{ abi_list_filename, err });
                 };
                 var lines_it = std.mem.tokenize(u8, contents, "\n");
@@ -838,7 +838,7 @@ pub fn main() !void {
 
     {
         // Function Inclusions
-        try w.writeIntLittle(u16, @intCast(fn_inclusions.items.len));
+        try w.writeInt(u16, @intCast(fn_inclusions.items.len), .little);
         var i: usize = 0;
         while (i < fn_inclusions.items.len) {
             const name = fn_inclusions.items[i].name;
@@ -853,7 +853,7 @@ pub fn main() !void {
                 if (set_terminal_bit) {
                     target_bitset |= 1 << 31;
                 }
-                try w.writeIntLittle(u32, target_bitset);
+                try w.writeInt(u32, target_bitset, .little);
                 try w.writeByte(inc.lib);
 
                 var buf: [versions.len]u8 = undefined;
@@ -874,7 +874,7 @@ pub fn main() !void {
 
     {
         // Object Inclusions
-        try w.writeIntLittle(u16, @intCast(obj_inclusions.items.len));
+        try w.writeInt(u16, @intCast(obj_inclusions.items.len), .little);
         var i: usize = 0;
         while (i < obj_inclusions.items.len) {
             const name = obj_inclusions.items[i].name;
@@ -889,8 +889,8 @@ pub fn main() !void {
                 if (set_terminal_bit) {
                     target_bitset |= 1 << 31;
                 }
-                try w.writeIntLittle(u32, target_bitset);
-                try w.writeIntLittle(u16, inc.size);
+                try w.writeInt(u32, target_bitset, .little);
+                try w.writeInt(u16, inc.size, .little);
                 try w.writeByte(inc.lib);
 
                 var buf: [versions.len]u8 = undefined;
