@@ -44,8 +44,8 @@ const lib_names = [_][]const u8{
 
 /// This is organized by grouping together at the beginning,
 /// targets most likely to share the same symbol information.
+// zig fmt: off
 const zig_targets = [_]ZigTarget{
-    // zig fmt: off
     .{ .arch = .arm        , .abi = .gnueabi },
     .{ .arch = .armeb      , .abi = .gnueabi },
     .{ .arch = .arm        , .abi = .gnueabihf },
@@ -75,62 +75,62 @@ const zig_targets = [_]ZigTarget{
     .{ .arch = .sparc64    , .abi = .gnu },
 
     .{ .arch = .s390x      , .abi = .gnu },
-    // zig fmt: on
 };
+// zig fmt: on
 
 const versions = [_]Version{
-    .{.major = 2, .minor = 0},
-    .{.major = 2, .minor = 1},
-    .{.major = 2, .minor = 1, .patch = 1},
-    .{.major = 2, .minor = 1, .patch = 2},
-    .{.major = 2, .minor = 1, .patch = 3},
-    .{.major = 2, .minor = 2},
-    .{.major = 2, .minor = 2, .patch = 1},
-    .{.major = 2, .minor = 2, .patch = 2},
-    .{.major = 2, .minor = 2, .patch = 3},
-    .{.major = 2, .minor = 2, .patch = 4},
-    .{.major = 2, .minor = 2, .patch = 5},
-    .{.major = 2, .minor = 2, .patch = 6},
-    .{.major = 2, .minor = 3},
-    .{.major = 2, .minor = 3, .patch = 2},
-    .{.major = 2, .minor = 3, .patch = 3},
-    .{.major = 2, .minor = 3, .patch = 4},
-    .{.major = 2, .minor = 4},
-    .{.major = 2, .minor = 5},
-    .{.major = 2, .minor = 6},
-    .{.major = 2, .minor = 7},
-    .{.major = 2, .minor = 8},
-    .{.major = 2, .minor = 9},
-    .{.major = 2, .minor = 10},
-    .{.major = 2, .minor = 11},
-    .{.major = 2, .minor = 12},
-    .{.major = 2, .minor = 13},
-    .{.major = 2, .minor = 14},
-    .{.major = 2, .minor = 15},
-    .{.major = 2, .minor = 16},
-    .{.major = 2, .minor = 17},
-    .{.major = 2, .minor = 18},
-    .{.major = 2, .minor = 19},
-    .{.major = 2, .minor = 20},
-    .{.major = 2, .minor = 21},
-    .{.major = 2, .minor = 22},
-    .{.major = 2, .minor = 23},
-    .{.major = 2, .minor = 24},
-    .{.major = 2, .minor = 25},
-    .{.major = 2, .minor = 26},
-    .{.major = 2, .minor = 27},
-    .{.major = 2, .minor = 28},
-    .{.major = 2, .minor = 29},
-    .{.major = 2, .minor = 30},
-    .{.major = 2, .minor = 31},
-    .{.major = 2, .minor = 32},
-    .{.major = 2, .minor = 33},
-    .{.major = 2, .minor = 34},
-    .{.major = 2, .minor = 35},
-    .{.major = 2, .minor = 36},
-    .{.major = 2, .minor = 37},
-    .{.major = 2, .minor = 38},
-    .{.major = 2, .minor = 39},
+    .{ .major = 2, .minor = 0 },
+    .{ .major = 2, .minor = 1 },
+    .{ .major = 2, .minor = 1, .patch = 1 },
+    .{ .major = 2, .minor = 1, .patch = 2 },
+    .{ .major = 2, .minor = 1, .patch = 3 },
+    .{ .major = 2, .minor = 2 },
+    .{ .major = 2, .minor = 2, .patch = 1 },
+    .{ .major = 2, .minor = 2, .patch = 2 },
+    .{ .major = 2, .minor = 2, .patch = 3 },
+    .{ .major = 2, .minor = 2, .patch = 4 },
+    .{ .major = 2, .minor = 2, .patch = 5 },
+    .{ .major = 2, .minor = 2, .patch = 6 },
+    .{ .major = 2, .minor = 3 },
+    .{ .major = 2, .minor = 3, .patch = 2 },
+    .{ .major = 2, .minor = 3, .patch = 3 },
+    .{ .major = 2, .minor = 3, .patch = 4 },
+    .{ .major = 2, .minor = 4 },
+    .{ .major = 2, .minor = 5 },
+    .{ .major = 2, .minor = 6 },
+    .{ .major = 2, .minor = 7 },
+    .{ .major = 2, .minor = 8 },
+    .{ .major = 2, .minor = 9 },
+    .{ .major = 2, .minor = 10 },
+    .{ .major = 2, .minor = 11 },
+    .{ .major = 2, .minor = 12 },
+    .{ .major = 2, .minor = 13 },
+    .{ .major = 2, .minor = 14 },
+    .{ .major = 2, .minor = 15 },
+    .{ .major = 2, .minor = 16 },
+    .{ .major = 2, .minor = 17 },
+    .{ .major = 2, .minor = 18 },
+    .{ .major = 2, .minor = 19 },
+    .{ .major = 2, .minor = 20 },
+    .{ .major = 2, .minor = 21 },
+    .{ .major = 2, .minor = 22 },
+    .{ .major = 2, .minor = 23 },
+    .{ .major = 2, .minor = 24 },
+    .{ .major = 2, .minor = 25 },
+    .{ .major = 2, .minor = 26 },
+    .{ .major = 2, .minor = 27 },
+    .{ .major = 2, .minor = 28 },
+    .{ .major = 2, .minor = 29 },
+    .{ .major = 2, .minor = 30 },
+    .{ .major = 2, .minor = 31 },
+    .{ .major = 2, .minor = 32 },
+    .{ .major = 2, .minor = 33 },
+    .{ .major = 2, .minor = 34 },
+    .{ .major = 2, .minor = 35 },
+    .{ .major = 2, .minor = 36 },
+    .{ .major = 2, .minor = 37 },
+    .{ .major = 2, .minor = 38 },
+    .{ .major = 2, .minor = 39 },
 };
 
 // fpu/nofpu are hardcoded elsewhere, based on .gnueabi/.gnueabihf with an exception for .arm
@@ -300,8 +300,8 @@ const Symbol = struct {
             for (versions_row, 0..) |ty, versions_i| {
                 switch (ty) {
                     .absent => {
-                        if ((inc.targets & (@as(u32, 1) << @intCast(targets_i)) ) != 0 and
-                            (inc.versions & (@as(u64, 1) << @intCast(versions_i)) ) != 0)
+                        if ((inc.targets & (@as(u32, 1) << @intCast(targets_i))) != 0 and
+                            (inc.versions & (@as(u64, 1) << @intCast(versions_i))) != 0)
                         {
                             return false;
                         }
@@ -332,7 +332,7 @@ pub fn main() !void {
 
     //const args = try std.process.argsAlloc(arena);
 
-    var version_dir = try fs.cwd().openDir("glibc", .{.iterate = true});
+    var version_dir = try fs.cwd().openDir("glibc", .{ .iterate = true });
     defer version_dir.close();
 
     const fs_versions = v: {
@@ -364,7 +364,7 @@ pub fn main() !void {
         log.info("scanning abilist files for glibc version: {}", .{fs_ver});
 
         const prefix = try fmt.allocPrint(arena, "{d}.{d}/sysdeps/unix/sysv/linux", .{
-            fs_ver.major, fs_ver.minor, 
+            fs_ver.major, fs_ver.minor,
         });
         for (&abi_lists) |*abi_list| {
             if (abi_list.targets[0].arch == .riscv64 and fs_ver.order(ver27) == .lt) {
@@ -422,7 +422,7 @@ pub fn main() !void {
                             prefix, abi_list.path, "nofpu", basename,
                         });
                     } else if ((abi_list.targets[0].arch == .armeb or
-                            abi_list.targets[0].arch == .arm) and fs_ver.order(ver30) == .gt)
+                        abi_list.targets[0].arch == .arm) and fs_ver.order(ver30) == .gt)
                     {
                         const endian_suffix = switch (abi_list.targets[0].arch) {
                             .armeb => "be",
@@ -432,7 +432,8 @@ pub fn main() !void {
                             prefix, abi_list.path, endian_suffix, basename,
                         });
                     } else if ((abi_list.targets[0].arch == .powerpc64le or
-                            abi_list.targets[0].arch == .powerpc64)) {
+                        abi_list.targets[0].arch == .powerpc64))
+                    {
                         if (fs_ver.order(ver28) == .gt) {
                             const endian_suffix = switch (abi_list.targets[0].arch) {
                                 .powerpc64le => "le",
@@ -484,7 +485,7 @@ pub fn main() !void {
                     else if (mem.eql(u8, category, "A"))
                         continue
                     else
-                        fatal("unrecognized symbol type '{s}' on line '{s}'", .{category, line});
+                        fatal("unrecognized symbol type '{s}' on line '{s}'", .{ category, line });
 
                     // Detect incorrect information when a symbol migrates from one library
                     // to another.
@@ -647,7 +648,7 @@ pub fn main() !void {
                 fn_version_popcount += @popCount(inc.versions);
 
                 try fn_inclusions.append(.{
-                    .name = entry.key_ptr.*, 
+                    .name = entry.key_ptr.*,
                     .inc = inc,
                 });
 
@@ -655,8 +656,8 @@ pub fn main() !void {
                 for (targets_row, 0..) |versions_row, targets_i| {
                     for (versions_row, 0..) |_, versions_i| {
                         if (handled[lib_i][targets_i][versions_i]) continue;
-                        if ((inc.targets & (@as(u32, 1) << @intCast(targets_i)) ) != 0 and
-                            (inc.versions & (@as(u64, 1) << @intCast(versions_i)) ) != 0)
+                        if ((inc.targets & (@as(u32, 1) << @intCast(targets_i))) != 0 and
+                            (inc.versions & (@as(u64, 1) << @intCast(versions_i))) != 0)
                         {
                             handled[lib_i][targets_i][versions_i] = true;
                         }
@@ -782,7 +783,7 @@ pub fn main() !void {
                 obj_version_popcount += @popCount(inc.versions);
 
                 try obj_inclusions.append(.{
-                    .name = entry.key_ptr.*, 
+                    .name = entry.key_ptr.*,
                     .inc = inc,
                 });
 
@@ -790,8 +791,8 @@ pub fn main() !void {
                 for (targets_row, 0..) |versions_row, targets_i| {
                     for (versions_row, 0..) |_, versions_i| {
                         if (handled[lib_i][targets_i][versions_i]) continue;
-                        if ((inc.targets & (@as(u32, 1) << @intCast(targets_i)) ) != 0 and
-                            (inc.versions & (@as(u64, 1) << @intCast(versions_i)) ) != 0)
+                        if ((inc.targets & (@as(u32, 1) << @intCast(targets_i))) != 0 and
+                            (inc.versions & (@as(u64, 1) << @intCast(versions_i))) != 0)
                         {
                             handled[lib_i][targets_i][versions_i] = true;
                         }
@@ -834,7 +835,7 @@ pub fn main() !void {
     // Targets
     try w.writeByte(zig_targets.len);
     for (zig_targets) |zt| {
-        try w.print("{s}-linux-{s}\x00", .{@tagName(zt.arch), @tagName(zt.abi)});
+        try w.print("{s}-linux-{s}\x00", .{ @tagName(zt.arch), @tagName(zt.abi) });
     }
 
     {

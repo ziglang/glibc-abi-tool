@@ -38,6 +38,7 @@ jobs:
           path="$HOME/zig/$version"
           echo "$path" >> $GITHUB_PATH
 
+      - run: zig fmt *.zig
       - run: zig build-exe list_symbols.zig
       - run: zig build-exe collect_abilist_files.zig
 
