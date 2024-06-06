@@ -1,7 +1,7 @@
 # glibc ABI Tool
 
 This repository contains `.abilist` files from every version of glibc. These
-files are consolidated to generate a single 210 KB symbol mapping file that is
+files are consolidated to generate a single 212 KB symbol mapping file that is
 shipped with Zig to target any version of glibc. This repository is for Zig
 maintainers to use when a new glibc version is tagged upstream; Zig users have
 no need for this repository.
@@ -14,7 +14,7 @@ no need for this repository.
 git clone git://sourceware.org/git/glibc.git
 ```
 
-2. Check out the new glibc version git tag, e.g. `glibc-2.38`.
+2. Check out the new glibc version git tag, e.g. `glibc-2.39`.
 
 3. Run the tool to grab the new abilist files:
 
