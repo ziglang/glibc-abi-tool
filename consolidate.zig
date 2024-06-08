@@ -73,6 +73,7 @@ const zig_targets = [_]ZigTarget{
     .{ .arch = .x86_64     , .abi = .gnux32 },
     .{ .arch = .riscv64    , .abi = .gnu },
     .{ .arch = .sparc64    , .abi = .gnu },
+    .{ .arch = .loongarch64, .abi = .gnu },
 
     .{ .arch = .s390x      , .abi = .gnu },
     // zig fmt: on
@@ -234,6 +235,18 @@ const abi_lists = [_]AbiList{
         },
         .path = "riscv/rv64",
     },
+    AbiList{
+        .targets = &[_]ZigTarget{
+            ZigTarget{ .arch = .loongarch64, .abi = .gnu },
+        },
+        .path = "loongarch/lp64",
+    },
+};
+
+/// This is the first version that has loongarch support.
+const ver36 = Version{
+    .major = 2,
+    .minor = 36,
 };
 
 /// After glibc 2.33, mips64 put some files inside n64 and n32 directories.
@@ -373,16 +386,21 @@ pub fn main() !void {
             if (abi_list.targets[0].arch == .riscv32 and fs_ver.order(ver33) == .lt) {
                 continue;
             }
+            if (abi_list.targets[0].arch == .loongarch64 and fs_ver.order(ver36) == .lt) {
+                continue;
+            }
 
             for (lib_names, 0..) |lib_name, lib_i| {
                 const lib_prefix = if (std.mem.eql(u8, lib_name, "ld")) "" else "lib";
                 const basename = try fmt.allocPrint(arena, "{s}{s}.abilist", .{ lib_prefix, lib_name });
                 const abi_list_filename = blk: {
                     const is_c = std.mem.eql(u8, lib_name, "c");
+                    const is_dl = std.mem.eql(u8, lib_name, "dl");
                     const is_m = std.mem.eql(u8, lib_name, "m");
                     const is_ld = std.mem.eql(u8, lib_name, "ld");
                     const is_rt = std.mem.eql(u8, lib_name, "rt");
                     const is_resolv = std.mem.eql(u8, lib_name, "resolv");
+                    const is_util = std.mem.eql(u8, lib_name, "util");
 
                     if ((abi_list.targets[0].arch == .mips64 or
                         abi_list.targets[0].arch == .mips64el) and
@@ -432,7 +450,8 @@ pub fn main() !void {
                             prefix, abi_list.path, endian_suffix, basename,
                         });
                     } else if ((abi_list.targets[0].arch == .powerpc64le or
-                            abi_list.targets[0].arch == .powerpc64)) {
+                            abi_list.targets[0].arch == .powerpc64))
+                    {
                         if (fs_ver.order(ver28) == .gt) {
                             const endian_suffix = switch (abi_list.targets[0].arch) {
                                 .powerpc64le => "le",
@@ -452,6 +471,8 @@ pub fn main() !void {
                         break :blk try fmt.allocPrint(arena, "{s}/{s}/{s}{s}{s}.abilist", .{
                             prefix, abi_list.path, lib_prefix, lib_name, endian_suffix,
                         });
+                    } else if (abi_list.targets[0].arch == .loongarch64 and (is_dl or is_util)) {
+                        continue;
                     }
 
                     break :blk try fs.path.join(arena, &.{ prefix, abi_list.path, basename });

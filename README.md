@@ -1,7 +1,7 @@
 # glibc ABI Tool
 
 This repository contains `.abilist` files from every version of glibc. These
-files are consolidated to generate a single 212 KB symbol mapping file that is
+files are consolidated to generate a single 232 KB symbol mapping file that is
 shipped with Zig to target any version of glibc. This repository is for Zig
 maintainers to use when a new glibc version is tagged upstream; Zig users have
 no need for this repository.
