@@ -57,7 +57,6 @@ const zig_targets = [_]ZigTarget{
     .{ .arch = .x86        , .abi = .gnu },
     .{ .arch = .riscv32    , .abi = .gnu },
     .{ .arch = .sparc      , .abi = .gnu },
-    .{ .arch = .sparcel    , .abi = .gnu },
     .{ .arch = .powerpc    , .abi = .gnueabi },
     .{ .arch = .powerpc    , .abi = .gnueabihf },
 
@@ -160,7 +159,6 @@ const abi_lists = [_]AbiList{
     AbiList{
         .targets = &[_]ZigTarget{
             ZigTarget{ .arch = .sparc, .abi = .gnu },
-            ZigTarget{ .arch = .sparcel, .abi = .gnu },
         },
         .path = "sparc/sparc32",
     },
