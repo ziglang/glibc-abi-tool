@@ -50,6 +50,10 @@ const zig_targets = [_]ZigTarget{
     .{ .arch = .armeb      , .abi = .gnueabi },
     .{ .arch = .arm        , .abi = .gnueabihf },
     .{ .arch = .armeb      , .abi = .gnueabihf },
+    .{ .arch = .arc        , .abi = .gnu },
+    .{ .arch = .csky       , .abi = .gnueabi },
+    .{ .arch = .csky       , .abi = .gnueabihf },
+    .{ .arch = .m68k       , .abi = .gnu },
     .{ .arch = .mipsel     , .abi = .gnueabihf },
     .{ .arch = .mips       , .abi = .gnueabihf },
     .{ .arch = .mipsel     , .abi = .gnueabi },
@@ -73,7 +77,6 @@ const zig_targets = [_]ZigTarget{
     .{ .arch = .riscv64    , .abi = .gnu },
     .{ .arch = .sparc64    , .abi = .gnu },
     .{ .arch = .loongarch64, .abi = .gnu },
-
     .{ .arch = .s390x      , .abi = .gnu },
     // zig fmt: on
 };
@@ -157,6 +160,17 @@ const abi_lists = [_]AbiList{
         .path = "arm",
     },
     AbiList{
+        .targets = &[_]ZigTarget{ZigTarget{ .arch = .arc, .abi = .gnu }},
+        .path = "arc",
+    },
+    AbiList{
+        .targets = &[_]ZigTarget{
+            ZigTarget{ .arch = .csky, .abi = .gnueabi },
+            ZigTarget{ .arch = .csky, .abi = .gnueabihf },
+        },
+        .path = "csky",
+    },
+    AbiList{
         .targets = &[_]ZigTarget{
             ZigTarget{ .arch = .sparc, .abi = .gnu },
         },
@@ -165,6 +179,10 @@ const abi_lists = [_]AbiList{
     AbiList{
         .targets = &[_]ZigTarget{ZigTarget{ .arch = .sparc64, .abi = .gnu }},
         .path = "sparc/sparc64",
+    },
+    AbiList{
+        .targets = &[_]ZigTarget{ZigTarget{ .arch = .m68k, .abi = .gnu }},
+        .path = "m68k/m680x0",
     },
     AbiList{
         .targets = &[_]ZigTarget{
@@ -254,11 +272,23 @@ const ver33 = Version{
     .minor = 33,
 };
 
+/// This is the first version that has arc support.
+const ver32 = Version{
+    .major = 2,
+    .minor = 32,
+};
+
 /// glibc 2.31 added sysdeps/unix/sysv/linux/arm/le and sysdeps/unix/sysv/linux/arm/be
 /// Before these directories did not exist.
 const ver30 = Version{
     .major = 2,
     .minor = 30,
+};
+
+/// This is the first version that has csky support.
+const ver29 = Version{
+    .major = 2,
+    .minor = 29,
 };
 
 /// Similarly, powerpc64 le and be were introduced in glibc 2.29
@@ -375,10 +405,16 @@ pub fn main() !void {
         log.info("scanning abilist files for glibc version: {}", .{fs_ver});
 
         const prefix = try fmt.allocPrint(arena, "{d}.{d}/sysdeps/unix/sysv/linux", .{
-            fs_ver.major, fs_ver.minor, 
+            fs_ver.major, fs_ver.minor,
         });
         for (&abi_lists) |*abi_list| {
             if (abi_list.targets[0].arch == .riscv64 and fs_ver.order(ver27) == .lt) {
+                continue;
+            }
+            if (abi_list.targets[0].arch == .csky and fs_ver.order(ver29) == .lt) {
+                continue;
+            }
+            if (abi_list.targets[0].arch == .arc and fs_ver.order(ver32) == .lt) {
                 continue;
             }
             if (abi_list.targets[0].arch == .riscv32 and fs_ver.order(ver33) == .lt) {
@@ -423,14 +459,14 @@ pub fn main() !void {
                         break :blk try fs.path.join(arena, &.{
                             prefix, abi_list.path, "n32", basename,
                         });
-                    } else if (abi_list.targets[0].arch != .arm and
+                    } else if ((abi_list.targets[0].arch != .arm and abi_list.targets[0].arch != .csky) and
                         abi_list.targets[0].abi == .gnueabihf and
                         (is_c or (is_m and abi_list.targets[0].arch == .powerpc)))
                     {
                         break :blk try fs.path.join(arena, &.{
                             prefix, abi_list.path, "fpu", basename,
                         });
-                    } else if (abi_list.targets[0].arch != .arm and
+                    } else if ((abi_list.targets[0].arch != .arm and abi_list.targets[0].arch != .csky) and
                         abi_list.targets[0].abi == .gnueabi and
                         (is_c or (is_m and abi_list.targets[0].arch == .powerpc)))
                     {
@@ -666,7 +702,7 @@ pub fn main() !void {
                 fn_version_popcount += @popCount(inc.versions);
 
                 try fn_inclusions.append(.{
-                    .name = entry.key_ptr.*, 
+                    .name = entry.key_ptr.*,
                     .inc = inc,
                 });
 
@@ -801,7 +837,7 @@ pub fn main() !void {
                 obj_version_popcount += @popCount(inc.versions);
 
                 try obj_inclusions.append(.{
-                    .name = entry.key_ptr.*, 
+                    .name = entry.key_ptr.*,
                     .inc = inc,
                 });
 
