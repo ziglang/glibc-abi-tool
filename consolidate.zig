@@ -516,9 +516,9 @@ pub fn main() !void {
                 const contents = version_dir.readFileAlloc(arena, abi_list_filename, max_bytes) catch |err| {
                     fatal("unable to open glibc/{s}: {}", .{ abi_list_filename, err });
                 };
-                var lines_it = std.mem.tokenize(u8, contents, "\n");
+                var lines_it = std.mem.tokenizeScalar(u8, contents, '\n');
                 while (lines_it.next()) |line| {
-                    var tok_it = std.mem.tokenize(u8, line, " ");
+                    var tok_it = std.mem.tokenizeScalar(u8, line, ' ');
                     const ver_text = tok_it.next().?;
                     if (mem.startsWith(u8, ver_text, "GCC_")) continue;
                     if (mem.startsWith(u8, ver_text, "_gp_disp")) continue;
