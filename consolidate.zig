@@ -605,6 +605,7 @@ pub fn main() !void {
     // as many targets as possible, then to as many versions as possible.
     var fn_inclusions = std.ArrayList(NamedInclusion).init(arena);
     var fn_count: usize = 0;
+    var fn_target_popcount: usize = 0;
     var fn_version_popcount: usize = 0;
     const none_handled = blk: {
         const empty_row = [1]bool{false} ** versions.len;
@@ -700,6 +701,7 @@ pub fn main() !void {
                     wanted_targets &= ~(@as(u32, 1) << @intCast(test_targ_index));
                 }
 
+                fn_target_popcount += @popCount(inc.targets);
                 fn_version_popcount += @popCount(inc.versions);
 
                 try fn_inclusions.append(.{
@@ -726,12 +728,16 @@ pub fn main() !void {
     log.info("average inclusions per function: {d}", .{
         @as(f64, @floatFromInt(fn_inclusions.items.len)) / @as(f64, @floatFromInt(fn_count)),
     });
+    log.info("average function targets bits set: {d}", .{
+        @as(f64, @floatFromInt(fn_target_popcount)) / @as(f64, @floatFromInt(fn_inclusions.items.len)),
+    });
     log.info("average function versions bits set: {d}", .{
         @as(f64, @floatFromInt(fn_version_popcount)) / @as(f64, @floatFromInt(fn_inclusions.items.len)),
     });
 
     var obj_inclusions = std.ArrayList(NamedInclusion).init(arena);
     var obj_count: usize = 0;
+    var obj_target_popcount: usize = 0;
     var obj_version_popcount: usize = 0;
     {
         var it = symbols.iterator();
@@ -835,6 +841,7 @@ pub fn main() !void {
                     wanted_targets &= ~(@as(u32, 1) << @intCast(test_targ_index));
                 }
 
+                obj_target_popcount += @popCount(inc.targets);
                 obj_version_popcount += @popCount(inc.versions);
 
                 try obj_inclusions.append(.{
@@ -860,6 +867,9 @@ pub fn main() !void {
     log.info("total object inclusions: {d}", .{obj_inclusions.items.len});
     log.info("average inclusions per object: {d}", .{
         @as(f32, @floatFromInt(obj_inclusions.items.len)) / @as(f32, @floatFromInt(obj_count)),
+    });
+    log.info("average objects targets bits set: {d}", .{
+        @as(f64, @floatFromInt(obj_target_popcount)) / @as(f64, @floatFromInt(obj_inclusions.items.len)),
     });
     log.info("average objects versions bits set: {d}", .{
         @as(f64, @floatFromInt(obj_version_popcount)) / @as(f64, @floatFromInt(obj_inclusions.items.len)),
