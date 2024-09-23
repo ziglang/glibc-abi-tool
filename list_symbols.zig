@@ -82,9 +82,9 @@ pub fn main() !void {
                 break :n name;
             };
             try w.print(" {s}:\n", .{symbol_name});
-            const targets = try r.readInt(u32, .little);
+            const targets = try std.leb.readUleb128(u64, r);
             const lib_index = try r.readByte();
-            const is_terminal = (targets & (1 << 31)) != 0;
+            const is_terminal = (targets & (1 << 63)) != 0;
             if (is_terminal) opt_symbol_name = null;
 
             var ver_buf: [50]u8 = undefined;
@@ -112,7 +112,7 @@ pub fn main() !void {
 
             try w.writeAll("  targets:");
             for (all_targets, 0..) |target, target_i| {
-                if ((targets & (@as(u32, 1) << @as(u5, @intCast(target_i)))) != 0) {
+                if ((targets & (@as(u64, 1) << @as(u6, @intCast(target_i)))) != 0) {
                     try w.print(" {s}", .{target});
                 }
             }
@@ -132,10 +132,10 @@ pub fn main() !void {
                 break :n name;
             };
             try w.print(" {s}:\n", .{symbol_name});
-            const targets = try r.readInt(u32, .little);
+            const targets = try std.leb.readUleb128(u64, r);
             const size = try r.readInt(u16, .little);
             const lib_index = try r.readByte();
-            const is_terminal = (targets & (1 << 31)) != 0;
+            const is_terminal = (targets & (1 << 63)) != 0;
             if (is_terminal) opt_symbol_name = null;
 
             var ver_buf: [50]u8 = undefined;
@@ -164,7 +164,7 @@ pub fn main() !void {
 
             try w.writeAll("  targets:");
             for (all_targets, 0..) |target, target_i| {
-                if ((targets & (@as(u32, 1) << @as(u5, @intCast(target_i)))) != 0) {
+                if ((targets & (@as(u64, 1) << @as(u6, @intCast(target_i)))) != 0) {
                     try w.print(" {s}", .{target});
                 }
             }

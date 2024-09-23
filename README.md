@@ -1,7 +1,7 @@
 # glibc ABI Tool
 
 This repository contains `.abilist` files from every version of glibc. These
-files are consolidated to generate a single 269 KB symbol mapping file that is
+files are consolidated to generate a single 265 KB symbol mapping file that is
 shipped with Zig to target any version of glibc. This repository is for Zig
 maintainers to use when a new glibc version is tagged upstream; Zig users have
 no need for this repository.
@@ -175,14 +175,14 @@ All integers are stored little-endian.
   - Set of Sized Inclusions
 
 Set of Unsized Inclusions:
-  - u32 set of targets this inclusion applies to (1 << INDEX_IN_TARGET_LIST)
-    - last inclusion is indicated if 1 << 31 bit is set in target bitset
+  - uleb128 (u64) set of targets this inclusion applies to (1 << INDEX_IN_TARGET_LIST)
+    - last inclusion is indicated if 1 << 63 bit is set in target bitset
   - u8 index of glibc library this inclusion applies to
   - [N]u8 set of glibc versions this inclusion applies to. MSB set indicates last.
 
 Set of Sized Inclusions:
-  - u32 set of targets this inclusion applies to (1 << INDEX_IN_TARGET_LIST)
-    - last inclusion is indicated if 1 << 31 bit is set in target bitset
+  - uleb128 (u64) set of targets this inclusion applies to (1 << INDEX_IN_TARGET_LIST)
+    - last inclusion is indicated if 1 << 63 bit is set in target bitset
   - u16 object size
   - u8 index of glibc library this inclusion applies to
   - [N]u8 set of glibc versions this inclusion applies to. MSB set indicates last.

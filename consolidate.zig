@@ -342,7 +342,7 @@ const Symbol = struct {
             for (versions_row, 0..) |ty, versions_i| {
                 switch (ty) {
                     .absent => {
-                        if ((inc.targets & (@as(u32, 1) << @intCast(targets_i)) ) != 0 and
+                        if ((inc.targets & (@as(u64, 1) << @intCast(targets_i)) ) != 0 and
                             (inc.versions & (@as(u64, 1) << @intCast(versions_i)) ) != 0)
                         {
                             return false;
@@ -358,7 +358,7 @@ const Symbol = struct {
 
 const Inclusion = struct {
     versions: u64,
-    targets: u32,
+    targets: u64,
     lib: u8,
     size: u16,
 };
@@ -631,7 +631,7 @@ pub fn main() !void {
                 }
                 const targets_row = entry.value_ptr.type[lib_i];
 
-                var wanted_targets: u32 = 0;
+                var wanted_targets: u64 = 0;
                 var wanted_versions_multi = [1]u64{0} ** zig_targets.len;
 
                 for (targets_row, 0..) |versions_row, targets_i| {
@@ -641,7 +641,7 @@ pub fn main() !void {
                         switch (ty) {
                             .absent => continue,
                             .function => {
-                                wanted_targets |= @as(u32, 1) << @intCast(targets_i);
+                                wanted_targets |= @as(u64, 1) << @intCast(targets_i);
                                 wanted_versions_multi[targets_i] |=
                                     @as(u64, 1) << @intCast(versions_i);
                             },
@@ -661,11 +661,11 @@ pub fn main() !void {
                 const first_ver_index = @ctz(wanted_versions);
                 var inc: Inclusion = .{
                     .versions = @as(u64, 1) << @intCast(first_ver_index),
-                    .targets = @as(u32, 1) << @intCast(first_targ_index),
+                    .targets = @as(u64, 1) << @intCast(first_targ_index),
                     .lib = @intCast(lib_i),
                     .size = 0,
                 };
-                wanted_targets &= ~(@as(u32, 1) << @intCast(first_targ_index));
+                wanted_targets &= ~(@as(u64, 1) << @intCast(first_targ_index));
                 wanted_versions &= ~(@as(u64, 1) << @intCast(first_ver_index));
                 assert(entry.value_ptr.testInclusion(inc, lib_i));
 
@@ -691,14 +691,14 @@ pub fn main() !void {
                     const test_targ_index = @ctz(wanted_targets);
                     const new_inc = .{
                         .versions = inc.versions,
-                        .targets = inc.targets | (@as(u32, 1) << @intCast(test_targ_index)),
+                        .targets = inc.targets | (@as(u64, 1) << @intCast(test_targ_index)),
                         .lib = inc.lib,
                         .size = 0,
                     };
                     if (entry.value_ptr.testInclusion(new_inc, lib_i)) {
                         inc = new_inc;
                     }
-                    wanted_targets &= ~(@as(u32, 1) << @intCast(test_targ_index));
+                    wanted_targets &= ~(@as(u64, 1) << @intCast(test_targ_index));
                 }
 
                 fn_target_popcount += @popCount(inc.targets);
@@ -713,7 +713,7 @@ pub fn main() !void {
                 for (targets_row, 0..) |versions_row, targets_i| {
                     for (versions_row, 0..) |_, versions_i| {
                         if (handled[lib_i][targets_i][versions_i]) continue;
-                        if ((inc.targets & (@as(u32, 1) << @intCast(targets_i)) ) != 0 and
+                        if ((inc.targets & (@as(u64, 1) << @intCast(targets_i)) ) != 0 and
                             (inc.versions & (@as(u64, 1) << @intCast(versions_i)) ) != 0)
                         {
                             handled[lib_i][targets_i][versions_i] = true;
@@ -757,7 +757,7 @@ pub fn main() !void {
                 }
                 const targets_row = entry.value_ptr.type[lib_i];
 
-                var wanted_targets: u32 = 0;
+                var wanted_targets: u64 = 0;
                 var wanted_versions_multi = [1]u64{0} ** zig_targets.len;
                 var wanted_sizes_multi = [1]u16{0} ** zig_targets.len;
 
@@ -768,7 +768,7 @@ pub fn main() !void {
                         switch (ty) {
                             .absent => continue,
                             .object => |size| {
-                                wanted_targets |= @as(u32, 1) << @intCast(targets_i);
+                                wanted_targets |= @as(u64, 1) << @intCast(targets_i);
 
                                 var ok = false;
                                 if (wanted_sizes_multi[targets_i] == 0) {
@@ -799,11 +799,11 @@ pub fn main() !void {
                 const first_ver_index = @ctz(wanted_versions);
                 var inc: Inclusion = .{
                     .versions = @as(u64, 1) << @intCast(first_ver_index),
-                    .targets = @as(u32, 1) << @intCast(first_targ_index),
+                    .targets = @as(u64, 1) << @intCast(first_targ_index),
                     .lib = @intCast(lib_i),
                     .size = wanted_size,
                 };
-                wanted_targets &= ~(@as(u32, 1) << @intCast(first_targ_index));
+                wanted_targets &= ~(@as(u64, 1) << @intCast(first_targ_index));
                 wanted_versions &= ~(@as(u64, 1) << @intCast(first_ver_index));
                 assert(entry.value_ptr.testInclusion(inc, lib_i));
 
@@ -830,7 +830,7 @@ pub fn main() !void {
                     if (wanted_sizes_multi[test_targ_index] == wanted_size) {
                         const new_inc = .{
                             .versions = inc.versions,
-                            .targets = inc.targets | (@as(u32, 1) << @intCast(test_targ_index)),
+                            .targets = inc.targets | (@as(u64, 1) << @intCast(test_targ_index)),
                             .lib = inc.lib,
                             .size = wanted_size,
                         };
@@ -838,7 +838,7 @@ pub fn main() !void {
                             inc = new_inc;
                         }
                     }
-                    wanted_targets &= ~(@as(u32, 1) << @intCast(test_targ_index));
+                    wanted_targets &= ~(@as(u64, 1) << @intCast(test_targ_index));
                 }
 
                 obj_target_popcount += @popCount(inc.targets);
@@ -853,7 +853,7 @@ pub fn main() !void {
                 for (targets_row, 0..) |versions_row, targets_i| {
                     for (versions_row, 0..) |_, versions_i| {
                         if (handled[lib_i][targets_i][versions_i]) continue;
-                        if ((inc.targets & (@as(u32, 1) << @intCast(targets_i)) ) != 0 and
+                        if ((inc.targets & (@as(u64, 1) << @intCast(targets_i)) ) != 0 and
                             (inc.versions & (@as(u64, 1) << @intCast(versions_i)) ) != 0)
                         {
                             handled[lib_i][targets_i][versions_i] = true;
@@ -918,9 +918,9 @@ pub fn main() !void {
                     !mem.eql(u8, name, fn_inclusions.items[i].name);
                 var target_bitset = inc.targets;
                 if (set_terminal_bit) {
-                    target_bitset |= 1 << 31;
+                    target_bitset |= 1 << 63;
                 }
-                try w.writeInt(u32, target_bitset, .little);
+                try std.leb.writeUleb128(w, target_bitset);
                 try w.writeByte(inc.lib);
 
                 var buf: [versions.len]u8 = undefined;
@@ -954,9 +954,9 @@ pub fn main() !void {
                     !mem.eql(u8, name, obj_inclusions.items[i].name);
                 var target_bitset = inc.targets;
                 if (set_terminal_bit) {
-                    target_bitset |= 1 << 31;
+                    target_bitset |= 1 << 63;
                 }
-                try w.writeInt(u32, target_bitset, .little);
+                try std.leb.writeUleb128(w, target_bitset);
                 try w.writeInt(u16, inc.size, .little);
                 try w.writeByte(inc.lib);
 
