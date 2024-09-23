@@ -81,6 +81,10 @@ const zig_targets = [_]ZigTarget{
     // zig fmt: on
 };
 
+comptime {
+    assert(zig_targets.len <= @bitSizeOf(std.meta.FieldType(Inclusion, .targets)));
+}
+
 const versions = [_]Version{
     .{.major = 2, .minor = 0},
     .{.major = 2, .minor = 1},
@@ -136,6 +140,10 @@ const versions = [_]Version{
     .{.major = 2, .minor = 39},
     .{.major = 2, .minor = 40},
 };
+
+comptime {
+    assert(versions.len <= @bitSizeOf(std.meta.FieldType(Inclusion, .versions)));
+}
 
 // fpu/nofpu are hardcoded elsewhere, based on .gnueabi/.gnueabihf with an exception for .arm
 // n64/n32 are hardcoded elsewhere, based on .gnuabi64/.gnuabin32
