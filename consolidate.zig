@@ -77,6 +77,7 @@ const zig_targets = [_]ZigTarget{
     .{ .arch = .riscv64    , .abi = .gnu },
     .{ .arch = .sparc64    , .abi = .gnu },
     .{ .arch = .loongarch64, .abi = .gnu },
+    .{ .arch = .loongarch64, .abi = .gnusf },
     .{ .arch = .s390x      , .abi = .gnu },
     // zig fmt: on
 };
@@ -263,6 +264,7 @@ const abi_lists = [_]AbiList{
     AbiList{
         .targets = &[_]ZigTarget{
             ZigTarget{ .arch = .loongarch64, .abi = .gnu },
+            ZigTarget{ .arch = .loongarch64, .abi = .gnusf },
         },
         .path = "loongarch/lp64",
     },
@@ -483,7 +485,7 @@ pub fn main() !void {
                             prefix, abi_list.path, "nofpu", basename,
                         });
                     } else if ((abi_list.targets[0].arch == .armeb or
-                            abi_list.targets[0].arch == .arm) and fs_ver.order(ver30) == .gt)
+                        abi_list.targets[0].arch == .arm) and fs_ver.order(ver30) == .gt)
                     {
                         const endian_suffix = switch (abi_list.targets[0].arch) {
                             .armeb => "be",
@@ -493,7 +495,7 @@ pub fn main() !void {
                             prefix, abi_list.path, endian_suffix, basename,
                         });
                     } else if ((abi_list.targets[0].arch == .powerpc64le or
-                            abi_list.targets[0].arch == .powerpc64))
+                        abi_list.targets[0].arch == .powerpc64))
                     {
                         if (fs_ver.order(ver28) == .gt) {
                             const endian_suffix = switch (abi_list.targets[0].arch) {
