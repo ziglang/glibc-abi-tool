@@ -914,14 +914,14 @@ pub fn main() !void {
             while (true) {
                 const inc = fn_inclusions.items[i].inc;
                 i += 1;
+                try std.leb.writeUleb128(w, inc.targets);
                 const set_terminal_bit = i >= fn_inclusions.items.len or
                     !mem.eql(u8, name, fn_inclusions.items[i].name);
-                var target_bitset = inc.targets;
+                var lib = inc.lib;
                 if (set_terminal_bit) {
-                    target_bitset |= 1 << 63;
+                    lib |= 1 << 7;
                 }
-                try std.leb.writeUleb128(w, target_bitset);
-                try w.writeByte(inc.lib);
+                try w.writeByte(lib);
 
                 var buf: [versions.len]u8 = undefined;
                 var buf_index: usize = 0;
@@ -950,15 +950,15 @@ pub fn main() !void {
             while (true) {
                 const inc = obj_inclusions.items[i].inc;
                 i += 1;
+                try std.leb.writeUleb128(w, inc.targets);
+                try w.writeInt(u16, inc.size, .little);
                 const set_terminal_bit = i >= obj_inclusions.items.len or
                     !mem.eql(u8, name, obj_inclusions.items[i].name);
-                var target_bitset = inc.targets;
+                var lib = inc.lib;
                 if (set_terminal_bit) {
-                    target_bitset |= 1 << 63;
+                    lib |= 1 << 7;
                 }
-                try std.leb.writeUleb128(w, target_bitset);
-                try w.writeInt(u16, inc.size, .little);
-                try w.writeByte(inc.lib);
+                try w.writeByte(lib);
 
                 var buf: [versions.len]u8 = undefined;
                 var buf_index: usize = 0;

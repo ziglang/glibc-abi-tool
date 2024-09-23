@@ -83,9 +83,14 @@ pub fn main() !void {
             };
             try w.print(" {s}:\n", .{symbol_name});
             const targets = try std.leb.readUleb128(u64, r);
-            const lib_index = try r.readByte();
-            const is_terminal = (targets & (1 << 63)) != 0;
-            if (is_terminal) opt_symbol_name = null;
+            var lib_index = try r.readByte();
+            const is_terminal = (lib_index & (1 << 7)) != 0;
+            if (is_terminal) {
+                std.debug.print("before: {}\n", .{lib_index});
+                lib_index &= ~@as(u8, 1 << 7);
+                std.debug.print("after: {}\n", .{lib_index});
+                opt_symbol_name = null;
+            }
 
             var ver_buf: [50]u8 = undefined;
             var ver_buf_index: usize = 0;
@@ -134,9 +139,14 @@ pub fn main() !void {
             try w.print(" {s}:\n", .{symbol_name});
             const targets = try std.leb.readUleb128(u64, r);
             const size = try r.readInt(u16, .little);
-            const lib_index = try r.readByte();
-            const is_terminal = (targets & (1 << 63)) != 0;
-            if (is_terminal) opt_symbol_name = null;
+            var lib_index = try r.readByte();
+            const is_terminal = (lib_index & (1 << 7)) != 0;
+            if (is_terminal) {
+                std.debug.print("before: {}\n", .{lib_index});
+                lib_index &= ~@as(u8, 1 << 7);
+                std.debug.print("after: {}\n", .{lib_index});
+                opt_symbol_name = null;
+            }
 
             var ver_buf: [50]u8 = undefined;
             var ver_buf_index: usize = 0;
