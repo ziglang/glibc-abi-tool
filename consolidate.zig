@@ -569,7 +569,7 @@ pub fn main() !void {
         var it = symbols.iterator();
         while (it.next()) |entry| {
             const name = entry.key_ptr.*;
-            var prev_ty: @typeInfo(Symbol.Type).Union.tag_type.? = .absent;
+            var prev_ty: @typeInfo(Symbol.Type).@"union".tag_type.? = .absent;
             for (entry.value_ptr.type) |targets_row| {
                 for (targets_row) |versions_row| {
                     for (versions_row) |ty| {
