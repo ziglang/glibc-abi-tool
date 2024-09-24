@@ -951,7 +951,7 @@ pub fn main() !void {
                 const inc = obj_inclusions.items[i].inc;
                 i += 1;
                 try std.leb.writeUleb128(w, inc.targets);
-                try w.writeInt(u16, inc.size, .little);
+                try std.leb.writeUleb128(w, inc.size);
                 const set_terminal_bit = i >= obj_inclusions.items.len or
                     !mem.eql(u8, name, obj_inclusions.items[i].name);
                 var lib = inc.lib;

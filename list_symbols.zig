@@ -138,7 +138,7 @@ pub fn main() !void {
             };
             try w.print(" {s}:\n", .{symbol_name});
             const targets = try std.leb.readUleb128(u64, r);
-            const size = try r.readInt(u16, .little);
+            const size = try std.leb.readUleb128(u16, r);
             var lib_index = try r.readByte();
             const is_terminal = (lib_index & (1 << 7)) != 0;
             if (is_terminal) {
