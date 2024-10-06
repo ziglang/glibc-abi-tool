@@ -77,9 +77,14 @@ const zig_targets = [_]ZigTarget{
     .{ .arch = .riscv64    , .abi = .gnu },
     .{ .arch = .sparc64    , .abi = .gnu },
     .{ .arch = .loongarch64, .abi = .gnu },
+    .{ .arch = .loongarch64, .abi = .gnusf },
     .{ .arch = .s390x      , .abi = .gnu },
     // zig fmt: on
 };
+
+comptime {
+    assert(zig_targets.len <= @bitSizeOf(std.meta.FieldType(Inclusion, .targets)));
+}
 
 const versions = [_]Version{
     .{.major = 2, .minor = 0},
@@ -136,6 +141,10 @@ const versions = [_]Version{
     .{.major = 2, .minor = 39},
     .{.major = 2, .minor = 40},
 };
+
+comptime {
+    assert(versions.len <= @bitSizeOf(std.meta.FieldType(Inclusion, .versions)));
+}
 
 // fpu/nofpu are hardcoded elsewhere, based on .gnueabi/.gnueabihf with an exception for .arm
 // n64/n32 are hardcoded elsewhere, based on .gnuabi64/.gnuabin32
@@ -255,6 +264,7 @@ const abi_lists = [_]AbiList{
     AbiList{
         .targets = &[_]ZigTarget{
             ZigTarget{ .arch = .loongarch64, .abi = .gnu },
+            ZigTarget{ .arch = .loongarch64, .abi = .gnusf },
         },
         .path = "loongarch/lp64",
     },
@@ -342,7 +352,7 @@ const Symbol = struct {
             for (versions_row, 0..) |ty, versions_i| {
                 switch (ty) {
                     .absent => {
-                        if ((inc.targets & (@as(u32, 1) << @intCast(targets_i)) ) != 0 and
+                        if ((inc.targets & (@as(u64, 1) << @intCast(targets_i)) ) != 0 and
                             (inc.versions & (@as(u64, 1) << @intCast(versions_i)) ) != 0)
                         {
                             return false;
@@ -358,7 +368,7 @@ const Symbol = struct {
 
 const Inclusion = struct {
     versions: u64,
-    targets: u32,
+    targets: u64,
     lib: u8,
     size: u16,
 };
@@ -475,7 +485,7 @@ pub fn main() !void {
                             prefix, abi_list.path, "nofpu", basename,
                         });
                     } else if ((abi_list.targets[0].arch == .armeb or
-                            abi_list.targets[0].arch == .arm) and fs_ver.order(ver30) == .gt)
+                        abi_list.targets[0].arch == .arm) and fs_ver.order(ver30) == .gt)
                     {
                         const endian_suffix = switch (abi_list.targets[0].arch) {
                             .armeb => "be",
@@ -485,7 +495,7 @@ pub fn main() !void {
                             prefix, abi_list.path, endian_suffix, basename,
                         });
                     } else if ((abi_list.targets[0].arch == .powerpc64le or
-                            abi_list.targets[0].arch == .powerpc64))
+                        abi_list.targets[0].arch == .powerpc64))
                     {
                         if (fs_ver.order(ver28) == .gt) {
                             const endian_suffix = switch (abi_list.targets[0].arch) {
@@ -569,7 +579,7 @@ pub fn main() !void {
         var it = symbols.iterator();
         while (it.next()) |entry| {
             const name = entry.key_ptr.*;
-            var prev_ty: @typeInfo(Symbol.Type).Union.tag_type.? = .absent;
+            var prev_ty: @typeInfo(Symbol.Type).@"union".tag_type.? = .absent;
             for (entry.value_ptr.type) |targets_row| {
                 for (targets_row) |versions_row| {
                     for (versions_row) |ty| {
@@ -605,6 +615,7 @@ pub fn main() !void {
     // as many targets as possible, then to as many versions as possible.
     var fn_inclusions = std.ArrayList(NamedInclusion).init(arena);
     var fn_count: usize = 0;
+    var fn_target_popcount: usize = 0;
     var fn_version_popcount: usize = 0;
     const none_handled = blk: {
         const empty_row = [1]bool{false} ** versions.len;
@@ -630,7 +641,7 @@ pub fn main() !void {
                 }
                 const targets_row = entry.value_ptr.type[lib_i];
 
-                var wanted_targets: u32 = 0;
+                var wanted_targets: u64 = 0;
                 var wanted_versions_multi = [1]u64{0} ** zig_targets.len;
 
                 for (targets_row, 0..) |versions_row, targets_i| {
@@ -640,7 +651,7 @@ pub fn main() !void {
                         switch (ty) {
                             .absent => continue,
                             .function => {
-                                wanted_targets |= @as(u32, 1) << @intCast(targets_i);
+                                wanted_targets |= @as(u64, 1) << @intCast(targets_i);
                                 wanted_versions_multi[targets_i] |=
                                     @as(u64, 1) << @intCast(versions_i);
                             },
@@ -660,11 +671,11 @@ pub fn main() !void {
                 const first_ver_index = @ctz(wanted_versions);
                 var inc: Inclusion = .{
                     .versions = @as(u64, 1) << @intCast(first_ver_index),
-                    .targets = @as(u32, 1) << @intCast(first_targ_index),
+                    .targets = @as(u64, 1) << @intCast(first_targ_index),
                     .lib = @intCast(lib_i),
                     .size = 0,
                 };
-                wanted_targets &= ~(@as(u32, 1) << @intCast(first_targ_index));
+                wanted_targets &= ~(@as(u64, 1) << @intCast(first_targ_index));
                 wanted_versions &= ~(@as(u64, 1) << @intCast(first_ver_index));
                 assert(entry.value_ptr.testInclusion(inc, lib_i));
 
@@ -690,16 +701,17 @@ pub fn main() !void {
                     const test_targ_index = @ctz(wanted_targets);
                     const new_inc = .{
                         .versions = inc.versions,
-                        .targets = inc.targets | (@as(u32, 1) << @intCast(test_targ_index)),
+                        .targets = inc.targets | (@as(u64, 1) << @intCast(test_targ_index)),
                         .lib = inc.lib,
                         .size = 0,
                     };
                     if (entry.value_ptr.testInclusion(new_inc, lib_i)) {
                         inc = new_inc;
                     }
-                    wanted_targets &= ~(@as(u32, 1) << @intCast(test_targ_index));
+                    wanted_targets &= ~(@as(u64, 1) << @intCast(test_targ_index));
                 }
 
+                fn_target_popcount += @popCount(inc.targets);
                 fn_version_popcount += @popCount(inc.versions);
 
                 try fn_inclusions.append(.{
@@ -711,7 +723,7 @@ pub fn main() !void {
                 for (targets_row, 0..) |versions_row, targets_i| {
                     for (versions_row, 0..) |_, versions_i| {
                         if (handled[lib_i][targets_i][versions_i]) continue;
-                        if ((inc.targets & (@as(u32, 1) << @intCast(targets_i)) ) != 0 and
+                        if ((inc.targets & (@as(u64, 1) << @intCast(targets_i)) ) != 0 and
                             (inc.versions & (@as(u64, 1) << @intCast(versions_i)) ) != 0)
                         {
                             handled[lib_i][targets_i][versions_i] = true;
@@ -726,12 +738,16 @@ pub fn main() !void {
     log.info("average inclusions per function: {d}", .{
         @as(f64, @floatFromInt(fn_inclusions.items.len)) / @as(f64, @floatFromInt(fn_count)),
     });
+    log.info("average function targets bits set: {d}", .{
+        @as(f64, @floatFromInt(fn_target_popcount)) / @as(f64, @floatFromInt(fn_inclusions.items.len)),
+    });
     log.info("average function versions bits set: {d}", .{
         @as(f64, @floatFromInt(fn_version_popcount)) / @as(f64, @floatFromInt(fn_inclusions.items.len)),
     });
 
     var obj_inclusions = std.ArrayList(NamedInclusion).init(arena);
     var obj_count: usize = 0;
+    var obj_target_popcount: usize = 0;
     var obj_version_popcount: usize = 0;
     {
         var it = symbols.iterator();
@@ -751,7 +767,7 @@ pub fn main() !void {
                 }
                 const targets_row = entry.value_ptr.type[lib_i];
 
-                var wanted_targets: u32 = 0;
+                var wanted_targets: u64 = 0;
                 var wanted_versions_multi = [1]u64{0} ** zig_targets.len;
                 var wanted_sizes_multi = [1]u16{0} ** zig_targets.len;
 
@@ -762,7 +778,7 @@ pub fn main() !void {
                         switch (ty) {
                             .absent => continue,
                             .object => |size| {
-                                wanted_targets |= @as(u32, 1) << @intCast(targets_i);
+                                wanted_targets |= @as(u64, 1) << @intCast(targets_i);
 
                                 var ok = false;
                                 if (wanted_sizes_multi[targets_i] == 0) {
@@ -793,11 +809,11 @@ pub fn main() !void {
                 const first_ver_index = @ctz(wanted_versions);
                 var inc: Inclusion = .{
                     .versions = @as(u64, 1) << @intCast(first_ver_index),
-                    .targets = @as(u32, 1) << @intCast(first_targ_index),
+                    .targets = @as(u64, 1) << @intCast(first_targ_index),
                     .lib = @intCast(lib_i),
                     .size = wanted_size,
                 };
-                wanted_targets &= ~(@as(u32, 1) << @intCast(first_targ_index));
+                wanted_targets &= ~(@as(u64, 1) << @intCast(first_targ_index));
                 wanted_versions &= ~(@as(u64, 1) << @intCast(first_ver_index));
                 assert(entry.value_ptr.testInclusion(inc, lib_i));
 
@@ -824,7 +840,7 @@ pub fn main() !void {
                     if (wanted_sizes_multi[test_targ_index] == wanted_size) {
                         const new_inc = .{
                             .versions = inc.versions,
-                            .targets = inc.targets | (@as(u32, 1) << @intCast(test_targ_index)),
+                            .targets = inc.targets | (@as(u64, 1) << @intCast(test_targ_index)),
                             .lib = inc.lib,
                             .size = wanted_size,
                         };
@@ -832,9 +848,10 @@ pub fn main() !void {
                             inc = new_inc;
                         }
                     }
-                    wanted_targets &= ~(@as(u32, 1) << @intCast(test_targ_index));
+                    wanted_targets &= ~(@as(u64, 1) << @intCast(test_targ_index));
                 }
 
+                obj_target_popcount += @popCount(inc.targets);
                 obj_version_popcount += @popCount(inc.versions);
 
                 try obj_inclusions.append(.{
@@ -846,7 +863,7 @@ pub fn main() !void {
                 for (targets_row, 0..) |versions_row, targets_i| {
                     for (versions_row, 0..) |_, versions_i| {
                         if (handled[lib_i][targets_i][versions_i]) continue;
-                        if ((inc.targets & (@as(u32, 1) << @intCast(targets_i)) ) != 0 and
+                        if ((inc.targets & (@as(u64, 1) << @intCast(targets_i)) ) != 0 and
                             (inc.versions & (@as(u64, 1) << @intCast(versions_i)) ) != 0)
                         {
                             handled[lib_i][targets_i][versions_i] = true;
@@ -860,6 +877,9 @@ pub fn main() !void {
     log.info("total object inclusions: {d}", .{obj_inclusions.items.len});
     log.info("average inclusions per object: {d}", .{
         @as(f32, @floatFromInt(obj_inclusions.items.len)) / @as(f32, @floatFromInt(obj_count)),
+    });
+    log.info("average objects targets bits set: {d}", .{
+        @as(f64, @floatFromInt(obj_target_popcount)) / @as(f64, @floatFromInt(obj_inclusions.items.len)),
     });
     log.info("average objects versions bits set: {d}", .{
         @as(f64, @floatFromInt(obj_version_popcount)) / @as(f64, @floatFromInt(obj_inclusions.items.len)),
@@ -904,14 +924,14 @@ pub fn main() !void {
             while (true) {
                 const inc = fn_inclusions.items[i].inc;
                 i += 1;
+                try std.leb.writeUleb128(w, inc.targets);
                 const set_terminal_bit = i >= fn_inclusions.items.len or
                     !mem.eql(u8, name, fn_inclusions.items[i].name);
-                var target_bitset = inc.targets;
+                var lib = inc.lib;
                 if (set_terminal_bit) {
-                    target_bitset |= 1 << 31;
+                    lib |= 1 << 7;
                 }
-                try w.writeInt(u32, target_bitset, .little);
-                try w.writeByte(inc.lib);
+                try w.writeByte(lib);
 
                 var buf: [versions.len]u8 = undefined;
                 var buf_index: usize = 0;
@@ -940,15 +960,15 @@ pub fn main() !void {
             while (true) {
                 const inc = obj_inclusions.items[i].inc;
                 i += 1;
+                try std.leb.writeUleb128(w, inc.targets);
+                try std.leb.writeUleb128(w, inc.size);
                 const set_terminal_bit = i >= obj_inclusions.items.len or
                     !mem.eql(u8, name, obj_inclusions.items[i].name);
-                var target_bitset = inc.targets;
+                var lib = inc.lib;
                 if (set_terminal_bit) {
-                    target_bitset |= 1 << 31;
+                    lib |= 1 << 7;
                 }
-                try w.writeInt(u32, target_bitset, .little);
-                try w.writeInt(u16, inc.size, .little);
-                try w.writeByte(inc.lib);
+                try w.writeByte(lib);
 
                 var buf: [versions.len]u8 = undefined;
                 var buf_index: usize = 0;
