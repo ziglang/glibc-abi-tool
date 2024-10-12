@@ -86,9 +86,7 @@ pub fn main() !void {
             var lib_index = try r.readByte();
             const is_terminal = (lib_index & (1 << 7)) != 0;
             if (is_terminal) {
-                std.debug.print("before: {}\n", .{lib_index});
                 lib_index &= ~@as(u8, 1 << 7);
-                std.debug.print("after: {}\n", .{lib_index});
                 opt_symbol_name = null;
             }
 
@@ -142,9 +140,7 @@ pub fn main() !void {
             var lib_index = try r.readByte();
             const is_terminal = (lib_index & (1 << 7)) != 0;
             if (is_terminal) {
-                std.debug.print("before: {}\n", .{lib_index});
                 lib_index &= ~@as(u8, 1 << 7);
-                std.debug.print("after: {}\n", .{lib_index});
                 opt_symbol_name = null;
             }
 
