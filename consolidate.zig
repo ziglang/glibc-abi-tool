@@ -683,7 +683,7 @@ pub fn main() !void {
                 // of the rest of the versions as possible.
                 while (wanted_versions != 0) {
                     const test_ver_index = @ctz(wanted_versions);
-                    const new_inc = .{
+                    const new_inc: Inclusion = .{
                         .versions = inc.versions | (@as(u64, 1) << @intCast(test_ver_index)),
                         .targets = inc.targets,
                         .lib = inc.lib,
@@ -699,7 +699,7 @@ pub fn main() !void {
                 // of the rest of the targets as possible.
                 while (wanted_targets != 0) {
                     const test_targ_index = @ctz(wanted_targets);
-                    const new_inc = .{
+                    const new_inc: Inclusion = .{
                         .versions = inc.versions,
                         .targets = inc.targets | (@as(u64, 1) << @intCast(test_targ_index)),
                         .lib = inc.lib,
@@ -821,7 +821,7 @@ pub fn main() !void {
                 // of the rest of the versions as possible.
                 while (wanted_versions != 0) {
                     const test_ver_index = @ctz(wanted_versions);
-                    const new_inc = .{
+                    const new_inc: Inclusion = .{
                         .versions = inc.versions | (@as(u64, 1) << @intCast(test_ver_index)),
                         .targets = inc.targets,
                         .lib = inc.lib,
@@ -838,7 +838,7 @@ pub fn main() !void {
                 while (wanted_targets != 0) {
                     const test_targ_index = @ctz(wanted_targets);
                     if (wanted_sizes_multi[test_targ_index] == wanted_size) {
-                        const new_inc = .{
+                        const new_inc: Inclusion = .{
                             .versions = inc.versions,
                             .targets = inc.targets | (@as(u64, 1) << @intCast(test_targ_index)),
                             .lib = inc.lib,
