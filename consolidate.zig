@@ -140,6 +140,7 @@ const versions = [_]Version{
     .{.major = 2, .minor = 38},
     .{.major = 2, .minor = 39},
     .{.major = 2, .minor = 40},
+    .{.major = 2, .minor = 41},
 };
 
 comptime {
