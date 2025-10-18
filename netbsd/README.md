@@ -12,7 +12,7 @@ all.
 
 ## Generating `.abilist` files for a new NetBSD libc version
 
-1. Follow [these instructions](https://github.com/ziglang/zig/wiki/Updating-libc#netbsd).
+1. Follow [these instructions](https://codeberg.org/ziglang/infra/src/branch/master/libc-update/netbsd.md).
 
 2. Make sure that `arches` and `libs` are up to date.
 

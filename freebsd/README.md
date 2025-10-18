@@ -14,7 +14,7 @@ process by using `.abilist` files, as well as the same `abilists` binary format.
 
 ## Generating `.abilist` files for a new FreeBSD libc version
 
-1. Follow [these instructions](https://github.com/ziglang/zig/wiki/Updating-libc#freebsd).
+1. Follow [these instructions](https://codeberg.org/ziglang/infra/src/branch/master/libc-update/freebsd.md).
 
 2. Make sure that `arches` and `libs` are up to date.
 

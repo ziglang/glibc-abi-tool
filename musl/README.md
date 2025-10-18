@@ -12,7 +12,7 @@ all.
 
 ## Generating `.abilist` files for a new musl version
 
-1. Follow [these instructions](https://github.com/ziglang/zig/wiki/Updating-libc#musl).
+1. Follow [these instructions](https://codeberg.org/ziglang/infra/src/branch/master/libc-update/musl.md).
 
 2. Make sure that `arches` is up to date.
 

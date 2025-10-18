@@ -14,7 +14,7 @@ currently on commit `5309310552e59cbd5ca2d306ae6b869551685b5c`.
 
 ## Generating `.abilist` files for a SerenityOS commit
 
-1. Follow [these instructions](https://github.com/ziglang/zig/wiki/Updating-libc#serenityos).
+1. Follow [these instructions](https://codeberg.org/ziglang/infra/src/branch/master/libc-update/serenity.md).
 
 2. Make sure that `arches` is up to date.
 
