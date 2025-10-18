@@ -33,13 +33,13 @@ const ZigTarget = struct {
 
 const lib_names = [_][]const u8{
     "m",
-    "pthread",
     "c",
+    "ld",
+    "resolv",
+    "pthread",
     "dl",
     "rt",
-    "ld",
     "util",
-    "resolv",
 };
 
 /// This is organized by grouping together at the beginning,
